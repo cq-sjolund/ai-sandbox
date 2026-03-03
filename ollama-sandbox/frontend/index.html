@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ollama Sandbox</title>
+
+  <!-- Adobe Fonts (Typekit) — Source Sans 3 + Source Code Pro -->
+  <link rel="stylesheet" href="https://use.typekit.net/aot8dfm.css"/>
+
+  <!-- Syntax highlighting theme (Atom One Light — matches Granite light) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css"/>
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-logo">
+      <div class="header-icon">
+        <!-- Simple chat / AI icon -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.03 2 11c0 2.7 1.22 5.12 3.17 6.83L4 22l4.63-1.54A10.53 10.53 0 0 0 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2zm1 13H7v-2h6v2zm3-4H7V9h9v2z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="header-title">Ollama Sandbox</div>
+        <div class="header-subtitle">Local AI · Fully offline</div>
+      </div>
+    </div>
+
+    <div class="header-model">llama3.2:3b</div>
+
+    <div class="header-status">
+      <span class="status-text" id="statusText">Checking…</span>
+      <span class="status-indicator" id="statusDot"></span>
+    </div>
+  </header>
+
+  <!-- ── Chat ───────────────────────────────────────────────────────────── -->
+  <main class="chat" id="chat">
+    <div class="sys-msg">Session started</div>
+  </main>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="input-row">
+      <textarea
+        id="input"
+        rows="1"
+        placeholder="Ask anything… (Shift+Enter for new line)"
+        autocomplete="off"
+        spellcheck="true"
+      ></textarea>
+      <button class="btn-send" id="send">
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        Send
+      </button>
+    </div>
+    <div class="input-actions">
+      <button class="btn-clear" id="clear">Clear conversation</button>
+      <span class="input-hint">Backend :8080 · Ollama :11434</span>
+    </div>
+  </footer>
+
+</div>
+
+<!-- ── Scripts ─────────────────────────────────────────────────────────────── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="chat.js"></script>
+
+</body>
+</html>

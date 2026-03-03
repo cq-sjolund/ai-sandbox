@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+
+  # ─── 1. Ollama (LLM engine) ───────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama   # persists downloaded models
+    # Apple Silicon: CPU inference works out-of-the-box inside Docker.
+    # GPU Metal passthrough is NOT supported in Docker on macOS, so the LLM
+    # runs on CPU inside the container (still very usable for 7B models).
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/11434' 2>/dev/null && exit 0 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # ─── 2. Model bootstrapper (pulls model once, then exits) ─────────────────
+  ollama-init:
+    image: curlimages/curl:latest
+    container_name: ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo 'Pulling llama3.2:3b model (first run only, ~2 GB)...'
+        curl -s -X POST http://ollama:11434/api/pull -H 'Content-Type: application/json' -d '{"name":"llama3.2:3b"}'
+        echo 'Model ready.'
+    restart: "no"
+
+  # ─── 3. Java HTTP backend (proxy + CORS bridge) ───────────────────────────
+  java-backend:
+    build:
+      context: ./java-backend
+      dockerfile: Dockerfile
+    container_name: java-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - MODEL_NAME=llama3.2:3b
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── 4. Frontend (static file server) ────────────────────────────────────
+  frontend:
+    image: nginx:alpine
+    container_name: frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - java-backend
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
