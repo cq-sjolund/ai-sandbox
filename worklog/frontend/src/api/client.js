@@ -73,6 +73,8 @@ export const entriesAPI = {
 export const aiAPI = {
   generateSummary: (request) => apiClient.post('/ai/summary', request),
   suggestColor: (projectName) => apiClient.post('/ai/suggest-color', { projectName }),
+  completeDescription: (currentText, summary, projectName) =>
+    apiClient.post('/ai/complete-description', { currentText, summary, projectName }),
 }
 
 // Auth API

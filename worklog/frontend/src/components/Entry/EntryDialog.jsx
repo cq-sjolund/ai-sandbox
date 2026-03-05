@@ -20,6 +20,7 @@ import {
 import { DatePicker } from '@react-spectrum/datepicker'
 import { useWorklog } from '../../contexts/WorklogContext'
 import { useProjects } from '../../contexts/ProjectContext'
+import { aiAPI } from '../../api/client'
 import { parseDate } from '@internationalized/date'
 
 export default function EntryDialog({ isOpen, onClose, selectedDate, editingEntry }) {
@@ -35,6 +36,8 @@ export default function EntryDialog({ isOpen, onClose, selectedDate, editingEntr
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [aiSuggestion, setAiSuggestion] = useState('')
+  const [suggestionLoading, setSuggestionLoading] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -58,6 +61,58 @@ export default function EntryDialog({ isOpen, onClose, selectedDate, editingEntr
       }
     }
   }, [editingEntry, selectedDate, isOpen])
+
+  // AI auto-complete for description
+  useEffect(() => {
+    // Only suggest if we have summary, project, and some description text
+    if (!formData.summary || !formData.projectId || !formData.description || formData.description.length < 10) {
+      setAiSuggestion('')
+      return
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setSuggestionLoading(true)
+        const project = projects.find(p => p.id === formData.projectId)
+        const projectName = project?.name || ''
+
+        console.log('Requesting AI completion with:', {
+          description: formData.description,
+          summary: formData.summary,
+          projectName
+        })
+
+        const response = await aiAPI.completeDescription(
+          formData.description,
+          formData.summary,
+          projectName
+        )
+
+        console.log('AI completion response:', response.data)
+
+        if (response.data.completion && response.data.completion.trim().length > 0) {
+          console.log('Setting AI suggestion:', response.data.completion)
+          setAiSuggestion(response.data.completion)
+        } else {
+          console.log('No completion in response or empty completion')
+          setAiSuggestion('')
+        }
+      } catch (err) {
+        console.error('Failed to get AI suggestion:', err)
+      } finally {
+        setSuggestionLoading(false)
+      }
+    }, 1500) // Wait 1.5 seconds after user stops typing
+
+    return () => clearTimeout(timeoutId)
+  }, [formData.description, formData.summary, formData.projectId, projects])
+
+  const handleAcceptSuggestion = () => {
+    if (aiSuggestion) {
+      setFormData({ ...formData, description: formData.description + ' ' + aiSuggestion })
+      setAiSuggestion('')
+    }
+  }
 
   const handleSubmit = async () => {
     try {
@@ -162,13 +217,38 @@ export default function EntryDialog({ isOpen, onClose, selectedDate, editingEntr
                 ))}
               </Picker>
 
-              <TextArea
-                label="Description"
-                value={formData.description}
-                onChange={(value) => setFormData({ ...formData, description: value })}
-                height="size-1200"
-                isRequired
-              />
+              <View width="100%">
+                <TextArea
+                  label="Description"
+                  value={formData.description}
+                  onChange={(value) => {
+                    setFormData({ ...formData, description: value })
+                    setAiSuggestion('') // Clear suggestion when user types
+                  }}
+                  height="size-1200"
+                  isRequired
+                  width="100%"
+                />
+
+                {suggestionLoading && (
+                  <Text UNSAFE_style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                    AI is thinking...
+                  </Text>
+                )}
+
+                {aiSuggestion && !suggestionLoading && (
+                  <View marginTop="size-100">
+                    <Flex direction="column" gap="size-100">
+                      <Text UNSAFE_style={{ fontSize: '13px', color: '#666', fontStyle: 'italic', padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+                        💡 AI Suggestion: {aiSuggestion}
+                      </Text>
+                      <Button variant="secondary" onPress={handleAcceptSuggestion} isQuiet>
+                        Accept Suggestion
+                      </Button>
+                    </Flex>
+                  </View>
+                )}
+              </View>
 
               {error && (
                 <Text UNSAFE_style={{ color: 'red' }}>{error}</Text>

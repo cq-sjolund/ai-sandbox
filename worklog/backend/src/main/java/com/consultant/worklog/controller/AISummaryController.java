@@ -68,4 +68,30 @@ public class AISummaryController {
             return ResponseEntity.ok(errorResponse);
         }
     }
+
+    @PostMapping("/complete-description")
+    public ResponseEntity<Map<String, String>> completeDescription(
+        @RequestBody Map<String, String> request
+    ) {
+        String currentText = request.getOrDefault("currentText", "");
+        String summary = request.getOrDefault("summary", "");
+        String projectName = request.getOrDefault("projectName", "");
+
+        log.debug("POST /api/ai/complete-description - Completing description");
+
+        try {
+            String completion = openAIService.completeDescription(currentText, summary, projectName);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("completion", completion);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error completing description: {}", e.getMessage(), e);
+            Map<String, String> response = new HashMap<>();
+            response.put("completion", "");
+            return ResponseEntity.ok(response);
+        }
+    }
 }

@@ -180,6 +180,44 @@ public class OpenAIService {
         }
     }
 
+    public String completeDescription(String currentText, String summary, String projectName) {
+        log.debug("Completing description for summary: {}", summary);
+
+        try {
+            String prompt = "You are a helpful assistant for a consultant tracking their work. " +
+                "The user is writing a worklog entry description. " +
+                "Project: " + projectName + "\n" +
+                "Summary: " + summary + "\n" +
+                "Current description text: \"" + currentText + "\"\n\n" +
+                "Suggest a natural continuation or completion of the description (1-2 sentences max). " +
+                "Be concise and professional. Only provide the completion text, not the entire description.";
+
+            List<ChatMessage> messages = new ArrayList<>();
+            messages.add(new ChatMessage(ChatMessageRole.USER.value(), prompt));
+
+            ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
+                .model(model)
+                .messages(messages)
+                .maxTokens(100)
+                .temperature(0.7)
+                .build();
+
+            String response = openAiService.createChatCompletion(completionRequest)
+                .getChoices()
+                .get(0)
+                .getMessage()
+                .getContent()
+                .trim();
+
+            log.info("Successfully completed description");
+            return response;
+
+        } catch (Exception e) {
+            log.error("Error completing description: {}", e.getMessage(), e);
+            return ""; // Return empty string on error
+        }
+    }
+
     private String formatDate(java.time.LocalDate date) {
         return date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"));
     }
