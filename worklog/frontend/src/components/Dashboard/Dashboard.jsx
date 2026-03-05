@@ -31,7 +31,7 @@ function Dashboard() {
             {/* Header */}
             <View gridArea="header">
               <Flex direction="row" justifyContent="space-between" alignItems="center">
-                <Heading level={1}>Consultant Worklog</Heading>
+                <Heading level={1} UNSAFE_style={{ margin: 0 }}>Consultant Worklog</Heading>
                 <Flex direction="row" gap="size-300" alignItems="center">
                   <Text>Welcome, {user?.username}</Text>
                   {user?.role === 'ADMIN' && (

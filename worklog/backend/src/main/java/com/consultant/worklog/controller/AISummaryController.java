@@ -43,4 +43,29 @@ public class AISummaryController {
             return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
+
+    @PostMapping("/suggest-color")
+    public ResponseEntity<Map<String, String>> suggestColor(
+        @RequestBody Map<String, String> request
+    ) {
+        String projectName = request.get("projectName");
+        log.debug("POST /api/ai/suggest-color - Suggesting color for project: {}", projectName);
+
+        try {
+            String colorCode = openAIService.suggestProjectColor(projectName);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("colorCode", colorCode);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error suggesting color: {}", e.getMessage(), e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to suggest color");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("colorCode", "#1473E6"); // Return default color even on error
+            return ResponseEntity.ok(errorResponse);
+        }
+    }
 }

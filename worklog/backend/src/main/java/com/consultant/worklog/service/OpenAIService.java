@@ -137,6 +137,47 @@ public class OpenAIService {
         }
     }
 
+    public String suggestProjectColor(String projectName) {
+        log.debug("Suggesting color for project: {}", projectName);
+
+        try {
+            String prompt = "You are a color expert. Based on the project name \"" + projectName +
+                "\", suggest an appropriate hex color code (e.g., #FF5733). " +
+                "Consider common color associations (e.g., Marketing=orange/red, Development=blue, Sales=green, HR=purple). " +
+                "Respond ONLY with the hex color code, nothing else.";
+
+            List<ChatMessage> messages = new ArrayList<>();
+            messages.add(new ChatMessage(ChatMessageRole.USER.value(), prompt));
+
+            ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
+                .model(model)
+                .messages(messages)
+                .maxTokens(20)
+                .temperature(0.7)
+                .build();
+
+            String response = openAiService.createChatCompletion(completionRequest)
+                .getChoices()
+                .get(0)
+                .getMessage()
+                .getContent()
+                .trim();
+
+            // Validate hex color format
+            if (response.matches("^#[0-9A-Fa-f]{6}$")) {
+                log.info("Successfully suggested color: {} for project: {}", response, projectName);
+                return response;
+            } else {
+                log.warn("Invalid color format from AI: {}, using default", response);
+                return "#1473E6"; // Default blue color
+            }
+
+        } catch (Exception e) {
+            log.error("Error suggesting color: {}", e.getMessage(), e);
+            return "#1473E6"; // Return default color on error
+        }
+    }
+
     private String formatDate(java.time.LocalDate date) {
         return date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"));
     }

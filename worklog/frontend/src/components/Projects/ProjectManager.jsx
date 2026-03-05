@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Heading,
@@ -18,15 +18,18 @@ import {
   Tooltip
 } from '@adobe/react-spectrum'
 import { useProjects } from '../../contexts/ProjectContext'
+import { aiAPI } from '../../api/client'
 import Add from '@spectrum-icons/workflow/Add'
 import Delete from '@spectrum-icons/workflow/Delete'
+import Edit from '@spectrum-icons/workflow/Edit'
 import InfoOutline from '@spectrum-icons/workflow/InfoOutline'
 
 export default function ProjectManager() {
-  const { projects, createProject, deleteProject, countProjectEntries } = useProjects()
+  const { projects, createProject, updateProject, deleteProject, countProjectEntries } = useProjects()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState(null)
+  const [editingProject, setEditingProject] = useState(null)
   const [entryCount, setEntryCount] = useState(0)
   const [formData, setFormData] = useState({
     name: '',
@@ -34,7 +37,29 @@ export default function ProjectManager() {
     description: ''
   })
   const [loading, setLoading] = useState(false)
+  const [colorLoading, setColorLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Auto-suggest color when name changes (only for new projects)
+  useEffect(() => {
+    if (!formData.name || formData.name.trim().length < 3 || editingProject) {
+      return
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setColorLoading(true)
+        const response = await aiAPI.suggestColor(formData.name)
+        setFormData(prev => ({ ...prev, colorCode: response.data.colorCode }))
+      } catch (err) {
+        console.error('Failed to suggest color:', err)
+      } finally {
+        setColorLoading(false)
+      }
+    }, 800)
+
+    return () => clearTimeout(timeoutId)
+  }, [formData.name, editingProject])
 
   const handleSubmit = async () => {
     try {
@@ -46,14 +71,37 @@ export default function ProjectManager() {
         return
       }
 
-      await createProject(formData)
+      if (editingProject) {
+        await updateProject(editingProject.id, formData)
+      } else {
+        await createProject(formData)
+      }
+
       setFormData({ name: '', colorCode: '#1473E6', description: '' })
+      setEditingProject(null)
       setIsDialogOpen(false)
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create project')
+      setError(err.response?.data?.message || `Failed to ${editingProject ? 'update' : 'create'} project`)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleEditClick = (project) => {
+    setEditingProject(project)
+    setFormData({
+      name: project.name,
+      colorCode: project.colorCode,
+      description: project.description || ''
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handleDialogClose = () => {
+    setIsDialogOpen(false)
+    setEditingProject(null)
+    setFormData({ name: '', colorCode: '#1473E6', description: '' })
+    setError(null)
   }
 
   const handleDeleteClick = async (project) => {
@@ -85,13 +133,16 @@ export default function ProjectManager() {
       <Flex direction="column" gap="size-200">
         <Flex direction="row" justifyContent="space-between" alignItems="center">
           <Heading level={3}>Projects</Heading>
-          <DialogTrigger isOpen={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger isOpen={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open)
+            if (!open) handleDialogClose()
+          }}>
             <Button variant="primary" isQuiet>
               <Add />
             </Button>
             {(close) => (
               <Dialog>
-                <Heading>New Project</Heading>
+                <Heading>{editingProject ? 'Edit Project' : 'New Project'}</Heading>
                 <Divider />
                 <Content>
                   <Form>
@@ -102,13 +153,45 @@ export default function ProjectManager() {
                       isRequired
                     />
 
-                    <TextField
-                      label="Color Code"
-                      value={formData.colorCode}
-                      onChange={(value) => setFormData({ ...formData, colorCode: value })}
-                      description="Hex color (e.g., #FF5733)"
-                      isRequired
-                    />
+                    <Flex direction="row" gap="size-100" alignItems="end">
+                      <TextField
+                        label="Color Code"
+                        value={formData.colorCode}
+                        onChange={(value) => setFormData({ ...formData, colorCode: value })}
+                        description="Hex color (e.g., #FF5733)"
+                        isRequired
+                        width="100%"
+                      />
+                      <View position="relative">
+                        <View
+                          width="size-600"
+                          height="size-600"
+                          borderRadius="medium"
+                          UNSAFE_style={{
+                            backgroundColor: formData.colorCode,
+                            border: '1px solid #ccc'
+                          }}
+                        />
+                        {colorLoading && (
+                          <View
+                            position="absolute"
+                            top={0}
+                            left={0}
+                            width="100%"
+                            height="100%"
+                            UNSAFE_style={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderRadius: '4px'
+                            }}
+                          >
+                            <Text UNSAFE_style={{ fontSize: '10px' }}>...</Text>
+                          </View>
+                        )}
+                      </View>
+                    </Flex>
 
                     <TextField
                       label="Description"
@@ -126,7 +209,7 @@ export default function ProjectManager() {
                     Cancel
                   </Button>
                   <Button variant="cta" onPress={handleSubmit} isDisabled={loading}>
-                    {loading ? 'Creating...' : 'Create'}
+                    {loading ? (editingProject ? 'Updating...' : 'Creating...') : (editingProject ? 'Update' : 'Create')}
                   </Button>
                 </ButtonGroup>
               </Dialog>
@@ -161,12 +244,20 @@ export default function ProjectManager() {
                   </TooltipTrigger>
                 )}
               </Flex>
-              <ActionButton
-                isQuiet
-                onPress={() => handleDeleteClick(project)}
-              >
-                <Delete />
-              </ActionButton>
+              <Flex direction="row" gap="size-100">
+                <ActionButton
+                  isQuiet
+                  onPress={() => handleEditClick(project)}
+                >
+                  <Edit />
+                </ActionButton>
+                <ActionButton
+                  isQuiet
+                  onPress={() => handleDeleteClick(project)}
+                >
+                  <Delete />
+                </ActionButton>
+              </Flex>
             </Flex>
           ))}
         </Flex>
