@@ -39,12 +39,13 @@ export default function EntryDialog({ isOpen, onClose, selectedDate, editingEntr
   useEffect(() => {
     if (isOpen) {
       if (editingEntry) {
+        const projectId = editingEntry.projectId || editingEntry.project?.id
         setFormData({
           entryDate: editingEntry.entryDate,
           summary: editingEntry.summary,
           description: editingEntry.description,
           hours: parseFloat(editingEntry.hours),
-          projectId: editingEntry.projectId
+          projectId: projectId ? Number(projectId) : null
         })
       } else if (selectedDate) {
         setFormData({
@@ -141,12 +142,23 @@ export default function EntryDialog({ isOpen, onClose, selectedDate, editingEntr
 
               <Picker
                 label="Project"
-                selectedKey={formData.projectId}
-                onSelectionChange={(key) => setFormData({ ...formData, projectId: key })}
+                selectedKey={formData.projectId ? String(formData.projectId) : null}
+                onSelectionChange={(key) => setFormData({ ...formData, projectId: Number(key) })}
+                placeholder="Select a project"
                 isRequired
               >
                 {projects.map(project => (
-                  <Item key={project.id}>{project.name}</Item>
+                  <Item key={String(project.id)} textValue={project.name}>
+                    <Flex direction="row" gap="size-100" alignItems="center">
+                      <View
+                        width="size-150"
+                        height="size-150"
+                        borderRadius="50%"
+                        UNSAFE_style={{ backgroundColor: project.colorCode }}
+                      />
+                      <Text>{project.name}</Text>
+                    </Flex>
+                  </Item>
                 ))}
               </Picker>
 
