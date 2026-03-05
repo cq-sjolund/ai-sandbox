@@ -41,10 +41,7 @@ apiClient.interceptors.response.use(
     // Handle 401 Unauthorized - token expired or invalid
     if (error.response?.status === 401) {
       localStorage.removeItem('jwt_token')
-      // Redirect to login page if not already there
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
-      }
+      // Let AuthContext and ProtectedRoute handle redirect via React Router
     }
 
     return Promise.reject(error)
