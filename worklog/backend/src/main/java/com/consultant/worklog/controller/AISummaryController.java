@@ -94,4 +94,29 @@ public class AISummaryController {
             return ResponseEntity.ok(response);
         }
     }
+
+    @PostMapping("/ask")
+    public ResponseEntity<Map<String, String>> askQuestion(
+        @RequestBody Map<String, String> request
+    ) {
+        String question = request.getOrDefault("question", "");
+
+        log.debug("POST /api/ai/ask - Asking AI: {}", question);
+
+        try {
+            String answer = openAIService.answerQuestion(question);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("answer", answer);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error answering question: {}", e.getMessage(), e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to answer question");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
 }

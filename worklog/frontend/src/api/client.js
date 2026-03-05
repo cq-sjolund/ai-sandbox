@@ -75,6 +75,7 @@ export const aiAPI = {
   suggestColor: (projectName) => apiClient.post('/ai/suggest-color', { projectName }),
   completeDescription: (currentText, summary, projectName) =>
     apiClient.post('/ai/complete-description', { currentText, summary, projectName }),
+  askQuestion: (question) => apiClient.post('/ai/ask', { question }),
 }
 
 // Auth API

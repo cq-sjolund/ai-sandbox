@@ -9,7 +9,11 @@ import {
   Well,
   ButtonGroup,
   Picker,
-  Item
+  Item,
+  Tabs,
+  TabList,
+  TabPanels,
+  TextArea
 } from '@adobe/react-spectrum'
 import { DatePicker } from '@react-spectrum/datepicker'
 import { today, getLocalTimeZone } from '@internationalized/date'
@@ -26,6 +30,12 @@ export default function AISummaryPanel() {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Ask AI state
+  const [question, setQuestion] = useState('')
+  const [answer, setAnswer] = useState(null)
+  const [askLoading, setAskLoading] = useState(false)
+  const [askError, setAskError] = useState(null)
 
   const handleGenerateSummary = async () => {
     try {
@@ -72,77 +82,153 @@ export default function AISummaryPanel() {
     }
   }
 
+  const handleAskQuestion = async () => {
+    if (!question.trim()) {
+      setAskError('Please enter a question')
+      return
+    }
+
+    try {
+      setAskLoading(true)
+      setAskError(null)
+      setAnswer(null)
+
+      const response = await aiAPI.askQuestion(question)
+      setAnswer(response.data.answer)
+    } catch (err) {
+      console.error('Failed to get answer:', err)
+      setAskError(err.response?.data?.message || 'Failed to get AI answer')
+    } finally {
+      setAskLoading(false)
+    }
+  }
+
   return (
     <View>
       <Flex direction="column" gap="size-200">
-        <Heading level={3}>AI Summary</Heading>
+        <Heading level={3}>AI Assistant</Heading>
 
-        <ButtonGroup>
-          <Button variant="secondary" onPress={() => handleQuickRange('week')} size="S">
-            Last Week
-          </Button>
-          <Button variant="secondary" onPress={() => handleQuickRange('month')} size="S">
-            Last Month
-          </Button>
-          <Button variant="secondary" onPress={() => handleQuickRange('quarter')} size="S">
-            Last Quarter
-          </Button>
-        </ButtonGroup>
+        <Tabs aria-label="AI Assistant Tabs" defaultSelectedKey="summary">
+          <TabList>
+            <Item key="summary">AI Summary</Item>
+            <Item key="ask">Ask AI</Item>
+          </TabList>
+          <TabPanels>
+            <Item key="summary">
+              <Flex direction="column" gap="size-200" marginTop="size-200">
+                <ButtonGroup>
+                  <Button variant="secondary" onPress={() => handleQuickRange('week')} size="S">
+                    Last Week
+                  </Button>
+                  <Button variant="secondary" onPress={() => handleQuickRange('month')} size="S">
+                    Last Month
+                  </Button>
+                  <Button variant="secondary" onPress={() => handleQuickRange('quarter')} size="S">
+                    Last Quarter
+                  </Button>
+                </ButtonGroup>
 
-        <DatePicker
-          label="Start Date"
-          value={dateRangeStart}
-          onChange={setDateRangeStart}
-        />
+                <DatePicker
+                  label="Start Date"
+                  value={dateRangeStart}
+                  onChange={setDateRangeStart}
+                />
 
-        <DatePicker
-          label="End Date"
-          value={dateRangeEnd}
-          onChange={setDateRangeEnd}
-        />
+                <DatePicker
+                  label="End Date"
+                  value={dateRangeEnd}
+                  onChange={setDateRangeEnd}
+                />
 
-        <Picker
-          label="Projects"
-          selectedKey={selectedProjects.has('all') ? 'all' : Array.from(selectedProjects)[0]}
-          onSelectionChange={(key) => {
-            if (key === 'all') {
-              setSelectedProjects(new Set(['all']))
-            } else {
-              setSelectedProjects(new Set([key]))
-            }
-          }}
-        >
-          <Item key="all">All Projects</Item>
-          {projects.map(project => (
-            <Item key={project.id}>{project.name}</Item>
-          ))}
-        </Picker>
+                <Picker
+                  label="Projects"
+                  selectedKey={selectedProjects.has('all') ? 'all' : Array.from(selectedProjects)[0]}
+                  onSelectionChange={(key) => {
+                    if (key === 'all') {
+                      setSelectedProjects(new Set(['all']))
+                    } else {
+                      setSelectedProjects(new Set([key]))
+                    }
+                  }}
+                >
+                  <Item key="all">All Projects</Item>
+                  {projects.map(project => (
+                    <Item key={project.id}>{project.name}</Item>
+                  ))}
+                </Picker>
 
-        <Button
-          variant="cta"
-          onPress={handleGenerateSummary}
-          isDisabled={loading}
-        >
-          {loading ? 'Generating...' : 'Generate Summary'}
-        </Button>
+                <Button
+                  variant="cta"
+                  onPress={handleGenerateSummary}
+                  isDisabled={loading}
+                >
+                  {loading ? 'Generating...' : 'Generate Summary'}
+                </Button>
 
-        {loading && (
-          <Flex justifyContent="center" marginTop="size-200">
-            <ProgressCircle aria-label="Loading summary" isIndeterminate />
-          </Flex>
-        )}
+                {loading && (
+                  <Flex justifyContent="center" marginTop="size-200">
+                    <ProgressCircle aria-label="Loading summary" isIndeterminate />
+                  </Flex>
+                )}
 
-        {error && (
-          <Well>
-            <Text UNSAFE_style={{ color: 'red' }}>{error}</Text>
-          </Well>
-        )}
+                {error && (
+                  <Well>
+                    <Text UNSAFE_style={{ color: 'red' }}>{error}</Text>
+                  </Well>
+                )}
 
-        {summary && !loading && (
-          <Well>
-            <Text UNSAFE_style={{ whiteSpace: 'pre-wrap' }}>{summary}</Text>
-          </Well>
-        )}
+                {summary && !loading && (
+                  <Well>
+                    <Text UNSAFE_style={{ whiteSpace: 'pre-wrap' }}>{summary}</Text>
+                  </Well>
+                )}
+              </Flex>
+            </Item>
+
+            <Item key="ask">
+              <Flex direction="column" gap="size-200" marginTop="size-200">
+                <Text>
+                  Ask questions about your worklog data. For example: "How many hours did I work on Project A this month?" or "What was my most productive day last week?"
+                </Text>
+
+                <TextArea
+                  label="Your Question"
+                  value={question}
+                  onChange={setQuestion}
+                  placeholder="e.g., How many hours did I work in project A?"
+                  height="size-1200"
+                  width="100%"
+                />
+
+                <Button
+                  variant="cta"
+                  onPress={handleAskQuestion}
+                  isDisabled={askLoading || !question.trim()}
+                >
+                  {askLoading ? 'Asking AI...' : 'Ask Question'}
+                </Button>
+
+                {askLoading && (
+                  <Flex justifyContent="center" marginTop="size-200">
+                    <ProgressCircle aria-label="Getting answer" isIndeterminate />
+                  </Flex>
+                )}
+
+                {askError && (
+                  <Well>
+                    <Text UNSAFE_style={{ color: 'red' }}>{askError}</Text>
+                  </Well>
+                )}
+
+                {answer && !askLoading && (
+                  <Well>
+                    <Text UNSAFE_style={{ whiteSpace: 'pre-wrap' }}>{answer}</Text>
+                  </Well>
+                )}
+              </Flex>
+            </Item>
+          </TabPanels>
+        </Tabs>
       </Flex>
     </View>
   )

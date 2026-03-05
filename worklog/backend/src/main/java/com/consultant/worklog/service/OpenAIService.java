@@ -218,6 +218,84 @@ public class OpenAIService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public String answerQuestion(String question) {
+        log.debug("Answering question: {}", question);
+
+        try {
+            // Get all worklog entries for the current user
+            List<WorklogEntry> entries = worklogEntryRepository.findAll();
+
+            if (entries.isEmpty()) {
+                return "I don't have any worklog data to answer your question. Please add some worklog entries first.";
+            }
+
+            // Build context from worklog entries
+            StringBuilder context = new StringBuilder();
+            context.append("Here is the user's worklog data:\n\n");
+
+            // Group entries by project
+            Map<String, List<WorklogEntry>> entriesByProject = entries.stream()
+                .collect(Collectors.groupingBy(e -> e.getProject().getName()));
+
+            for (Map.Entry<String, List<WorklogEntry>> projectEntry : entriesByProject.entrySet()) {
+                String projectName = projectEntry.getKey();
+                List<WorklogEntry> projectEntries = projectEntry.getValue();
+
+                BigDecimal projectHours = projectEntries.stream()
+                    .map(WorklogEntry::getHours)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                context.append("Project: ").append(projectName)
+                       .append(" (Total: ").append(projectHours).append(" hours)\n");
+
+                for (WorklogEntry entry : projectEntries) {
+                    context.append("  - ").append(formatDate(entry.getEntryDate()))
+                           .append(": ").append(entry.getHours()).append("h - ")
+                           .append(entry.getSummary());
+                    if (entry.getDescription() != null && !entry.getDescription().isBlank()) {
+                        context.append(" (").append(entry.getDescription()).append(")");
+                    }
+                    context.append("\n");
+                }
+                context.append("\n");
+            }
+
+            // Create prompt for OpenAI
+            String prompt = context.toString() + "\nUser Question: " + question +
+                           "\n\nPlease answer the question based on the worklog data provided above. " +
+                           "Be specific with numbers and dates where applicable. If the question cannot be " +
+                           "answered with the available data, explain what information is missing.";
+
+            List<ChatMessage> messages = new ArrayList<>();
+            messages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(),
+                "You are a helpful assistant that analyzes worklog data and answers questions about it. " +
+                "Provide clear, concise answers with specific numbers, dates, and project names."));
+            messages.add(new ChatMessage(ChatMessageRole.USER.value(), prompt));
+
+            ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
+                .model(model)
+                .messages(messages)
+                .maxTokens(500)
+                .temperature(0.7)
+                .build();
+
+            String response = openAiService.createChatCompletion(completionRequest)
+                .getChoices()
+                .get(0)
+                .getMessage()
+                .getContent()
+                .trim();
+
+            log.info("Successfully answered question");
+            return response;
+
+        } catch (Exception e) {
+            log.error("Error answering question: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to answer question: " + e.getMessage(), e);
+        }
+    }
+
     private String formatDate(java.time.LocalDate date) {
         return date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"));
     }
