@@ -13,11 +13,14 @@ import {
   Form,
   TextField,
   ActionButton,
-  AlertDialog
+  AlertDialog,
+  TooltipTrigger,
+  Tooltip
 } from '@adobe/react-spectrum'
 import { useProjects } from '../../contexts/ProjectContext'
 import Add from '@spectrum-icons/workflow/Add'
 import Delete from '@spectrum-icons/workflow/Delete'
+import InfoOutline from '@spectrum-icons/workflow/InfoOutline'
 
 export default function ProjectManager() {
   const { projects, createProject, deleteProject, countProjectEntries } = useProjects()
@@ -149,6 +152,14 @@ export default function ProjectManager() {
                   UNSAFE_style={{ backgroundColor: project.colorCode }}
                 />
                 <Text>{project.name}</Text>
+                {project.description && (
+                  <TooltipTrigger delay={0}>
+                    <ActionButton isQuiet UNSAFE_style={{ minWidth: 'auto', padding: '4px' }}>
+                      <InfoOutline size="S" />
+                    </ActionButton>
+                    <Tooltip>{project.description}</Tooltip>
+                  </TooltipTrigger>
+                )}
               </Flex>
               <ActionButton
                 isQuiet

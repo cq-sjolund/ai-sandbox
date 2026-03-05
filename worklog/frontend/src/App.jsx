@@ -1,72 +1,40 @@
-import React, { useState } from 'react'
-import { Provider, defaultTheme, Grid, View, Heading, Divider } from '@adobe/react-spectrum'
-import { WorklogProvider } from './contexts/WorklogContext'
-import { ProjectProvider } from './contexts/ProjectContext'
-import WorklogCalendar from './components/Calendar/WorklogCalendar'
-import AISummaryPanel from './components/AI/AISummaryPanel'
-import ProjectManager from './components/Projects/ProjectManager'
+import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Provider, defaultTheme } from '@adobe/react-spectrum'
+import { AuthProvider } from './contexts/AuthContext'
+import LoginPage from './components/Auth/LoginPage'
+import Dashboard from './components/Dashboard/Dashboard'
+import ProtectedRoute from './components/Routes/ProtectedRoute'
+import AdminRoute from './components/Routes/AdminRoute'
+import UserManagement from './components/Admin/UserManagement'
 
 function App() {
-  const [selectedDate, setSelectedDate] = useState(null)
-
   return (
     <Provider theme={defaultTheme} colorScheme="light">
-      <ProjectProvider>
-        <WorklogProvider>
-          <View padding="size-400" backgroundColor="gray-50" minHeight="100vh">
-            <Grid
-              areas={['header', 'main']}
-              columns={['1fr']}
-              rows={['auto', '1fr']}
-              gap="size-300"
-            >
-              {/* Header */}
-              <View gridArea="header">
-                <Heading level={1}>Consultant Worklog</Heading>
-                <Divider size="M" marginTop="size-100" />
-              </View>
-
-              {/* Main Content */}
-              <View gridArea="main">
-                <Grid
-                  areas={['calendar sidebar']}
-                  columns={['2fr', '1fr']}
-                  gap="size-300"
-                  height="100%"
-                >
-                  {/* Calendar Section */}
-                  <View gridArea="calendar" backgroundColor="gray-100" padding="size-300" borderRadius="medium">
-                    <WorklogCalendar
-                      selectedDate={selectedDate}
-                      onDateSelect={setSelectedDate}
-                    />
-                  </View>
-
-                  {/* Sidebar */}
-                  <View gridArea="sidebar">
-                    <Grid
-                      areas={['projects', 'ai']}
-                      rows={['auto', '1fr']}
-                      gap="size-300"
-                      height="100%"
-                    >
-                      {/* Projects Section */}
-                      <View gridArea="projects" backgroundColor="gray-100" padding="size-300" borderRadius="medium">
-                        <ProjectManager />
-                      </View>
-
-                      {/* AI Summary Section */}
-                      <View gridArea="ai" backgroundColor="gray-100" padding="size-300" borderRadius="medium">
-                        <AISummaryPanel />
-                      </View>
-                    </Grid>
-                  </View>
-                </Grid>
-              </View>
-            </Grid>
-          </View>
-        </WorklogProvider>
-      </ProjectProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <AdminRoute>
+                  <UserManagement />
+                </AdminRoute>
+              }
+            />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
     </Provider>
   )
 }

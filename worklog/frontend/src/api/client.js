@@ -10,10 +10,17 @@ const apiClient = axios.create({
   timeout: 30000,
 })
 
-// Request interceptor
+// Request interceptor - Add JWT token
 apiClient.interceptors.request.use(
   (config) => {
     console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`)
+
+    // Add JWT token to Authorization header if available
+    const token = localStorage.getItem('jwt_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
     return config
   },
   (error) => {
@@ -22,7 +29,7 @@ apiClient.interceptors.request.use(
   }
 )
 
-// Response interceptor
+// Response interceptor - Handle 401 unauthorized
 apiClient.interceptors.response.use(
   (response) => {
     console.log(`API Response: ${response.config.url} - ${response.status}`)
@@ -30,6 +37,16 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     console.error('API Response Error:', error.response?.data || error.message)
+
+    // Handle 401 Unauthorized - token expired or invalid
+    if (error.response?.status === 401) {
+      localStorage.removeItem('jwt_token')
+      // Redirect to login page if not already there
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
+    }
+
     return Promise.reject(error)
   }
 )
@@ -58,6 +75,20 @@ export const entriesAPI = {
 // AI Summary API
 export const aiAPI = {
   generateSummary: (request) => apiClient.post('/ai/summary', request),
+}
+
+// Auth API
+export const authAPI = {
+  login: (username, password) => apiClient.post('/auth/login', { username, password }),
+  getCurrentUser: () => apiClient.get('/auth/me'),
+}
+
+// Users API (Admin only)
+export const usersAPI = {
+  getAll: () => apiClient.get('/users'),
+  getById: (id) => apiClient.get(`/users/${id}`),
+  create: (userData) => apiClient.post('/users', userData),
+  delete: (id) => apiClient.delete(`/users/${id}`),
 }
 
 export default apiClient

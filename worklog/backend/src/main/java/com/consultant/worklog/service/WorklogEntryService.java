@@ -22,44 +22,57 @@ public class WorklogEntryService {
 
     private final WorklogEntryRepository worklogEntryRepository;
     private final ProjectRepository projectRepository;
+    private final AuthService authService;
 
     @Transactional(readOnly = true)
     public List<WorklogEntryDTO> getAllEntries() {
-        log.debug("Fetching all worklog entries");
-        return worklogEntryRepository.findAll().stream()
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Fetching all worklog entries for user: {}", userId);
+        return worklogEntryRepository.findByUserId(userId).stream()
             .map(this::convertToDTO)
             .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public WorklogEntryDTO getEntryById(Long id) {
-        log.debug("Fetching worklog entry with id: {}", id);
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Fetching worklog entry with id: {} for user: {}", id, userId);
         WorklogEntry entry = worklogEntryRepository.findById(id)
             .orElseThrow(() -> new ProjectService.ResourceNotFoundException("Worklog entry not found with id: " + id));
+
+        // Verify the entry belongs to the user through the project
+        if (!entry.getProject().getUser().getId().equals(userId)) {
+            throw new ProjectService.ResourceNotFoundException("Worklog entry not found with id: " + id);
+        }
+
         return convertToDTO(entry);
     }
 
     @Transactional(readOnly = true)
     public List<WorklogEntryDTO> getEntriesByDate(LocalDate date) {
-        log.debug("Fetching worklog entries for date: {}", date);
-        return worklogEntryRepository.findByEntryDateOrderByCreatedAtDesc(date).stream()
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Fetching worklog entries for date: {} for user: {}", date, userId);
+        return worklogEntryRepository.findByUserIdAndEntryDate(userId, date).stream()
             .map(this::convertToDTO)
             .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<WorklogEntryDTO> getEntriesByDateRange(LocalDate startDate, LocalDate endDate) {
-        log.debug("Fetching worklog entries between {} and {}", startDate, endDate);
-        return worklogEntryRepository.findByEntryDateBetweenOrderByEntryDateDesc(startDate, endDate).stream()
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Fetching worklog entries between {} and {} for user: {}", startDate, endDate, userId);
+        return worklogEntryRepository.findByUserIdAndEntryDateBetween(userId, startDate, endDate).stream()
             .map(this::convertToDTO)
             .collect(Collectors.toList());
     }
 
     @Transactional
     public WorklogEntryDTO createEntry(WorklogEntryDTO entryDTO) {
-        log.debug("Creating new worklog entry for date: {}", entryDTO.getEntryDate());
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Creating new worklog entry for date: {} for user: {}", entryDTO.getEntryDate(), userId);
 
-        Project project = projectRepository.findById(entryDTO.getProjectId())
+        // Verify the project belongs to the current user
+        Project project = projectRepository.findByIdAndUserId(entryDTO.getProjectId(), userId)
             .orElseThrow(() -> new ProjectService.ResourceNotFoundException("Project not found with id: " + entryDTO.getProjectId()));
 
         WorklogEntry entry = WorklogEntry.builder()
@@ -71,18 +84,25 @@ public class WorklogEntryService {
             .build();
 
         WorklogEntry savedEntry = worklogEntryRepository.save(entry);
-        log.info("Created worklog entry with id: {}", savedEntry.getId());
+        log.info("Created worklog entry with id: {} for user: {}", savedEntry.getId(), userId);
         return convertToDTO(savedEntry);
     }
 
     @Transactional
     public WorklogEntryDTO updateEntry(Long id, WorklogEntryDTO entryDTO) {
-        log.debug("Updating worklog entry with id: {}", id);
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Updating worklog entry with id: {} for user: {}", id, userId);
 
         WorklogEntry entry = worklogEntryRepository.findById(id)
             .orElseThrow(() -> new ProjectService.ResourceNotFoundException("Worklog entry not found with id: " + id));
 
-        Project project = projectRepository.findById(entryDTO.getProjectId())
+        // Verify the entry belongs to the user through the project
+        if (!entry.getProject().getUser().getId().equals(userId)) {
+            throw new ProjectService.ResourceNotFoundException("Worklog entry not found with id: " + id);
+        }
+
+        // Verify the new project also belongs to the user
+        Project project = projectRepository.findByIdAndUserId(entryDTO.getProjectId(), userId)
             .orElseThrow(() -> new ProjectService.ResourceNotFoundException("Project not found with id: " + entryDTO.getProjectId()));
 
         entry.setEntryDate(entryDTO.getEntryDate());
@@ -92,20 +112,25 @@ public class WorklogEntryService {
         entry.setProject(project);
 
         WorklogEntry updatedEntry = worklogEntryRepository.save(entry);
-        log.info("Updated worklog entry with id: {}", updatedEntry.getId());
+        log.info("Updated worklog entry with id: {} for user: {}", updatedEntry.getId(), userId);
         return convertToDTO(updatedEntry);
     }
 
     @Transactional
     public void deleteEntry(Long id) {
-        log.debug("Deleting worklog entry with id: {}", id);
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Deleting worklog entry with id: {} for user: {}", id, userId);
 
-        if (!worklogEntryRepository.existsById(id)) {
+        WorklogEntry entry = worklogEntryRepository.findById(id)
+            .orElseThrow(() -> new ProjectService.ResourceNotFoundException("Worklog entry not found with id: " + id));
+
+        // Verify the entry belongs to the user through the project
+        if (!entry.getProject().getUser().getId().equals(userId)) {
             throw new ProjectService.ResourceNotFoundException("Worklog entry not found with id: " + id);
         }
 
         worklogEntryRepository.deleteById(id);
-        log.info("Deleted worklog entry with id: {}", id);
+        log.info("Deleted worklog entry with id: {} for user: {}", id, userId);
     }
 
     private WorklogEntryDTO convertToDTO(WorklogEntry entry) {

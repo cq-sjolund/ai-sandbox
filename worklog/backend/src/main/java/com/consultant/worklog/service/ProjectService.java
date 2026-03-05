@@ -19,28 +19,32 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final WorklogEntryRepository worklogEntryRepository;
+    private final AuthService authService;
 
     @Transactional(readOnly = true)
     public List<ProjectDTO> getAllProjects() {
-        log.debug("Fetching all projects");
-        return projectRepository.findAll().stream()
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Fetching all projects for user: {}", userId);
+        return projectRepository.findByUserId(userId).stream()
             .map(this::convertToDTO)
             .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public ProjectDTO getProjectById(Long id) {
-        log.debug("Fetching project with id: {}", id);
-        Project project = projectRepository.findById(id)
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Fetching project with id: {} for user: {}", id, userId);
+        Project project = projectRepository.findByIdAndUserId(id, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
         return convertToDTO(project);
     }
 
     @Transactional
     public ProjectDTO createProject(ProjectDTO projectDTO) {
-        log.debug("Creating new project: {}", projectDTO.getName());
+        var currentUser = authService.getCurrentUserEntity();
+        log.debug("Creating new project: {} for user: {}", projectDTO.getName(), currentUser.getId());
 
-        if (projectRepository.existsByName(projectDTO.getName())) {
+        if (projectRepository.existsByNameAndUserId(projectDTO.getName(), currentUser.getId())) {
             throw new DuplicateResourceException("Project already exists with name: " + projectDTO.getName());
         }
 
@@ -48,22 +52,24 @@ public class ProjectService {
             .name(projectDTO.getName())
             .colorCode(projectDTO.getColorCode())
             .description(projectDTO.getDescription())
+            .user(currentUser)
             .build();
 
         Project savedProject = projectRepository.save(project);
-        log.info("Created project with id: {}", savedProject.getId());
+        log.info("Created project with id: {} for user: {}", savedProject.getId(), currentUser.getId());
         return convertToDTO(savedProject);
     }
 
     @Transactional
     public ProjectDTO updateProject(Long id, ProjectDTO projectDTO) {
-        log.debug("Updating project with id: {}", id);
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Updating project with id: {} for user: {}", id, userId);
 
-        Project project = projectRepository.findById(id)
+        Project project = projectRepository.findByIdAndUserId(id, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
 
         if (!project.getName().equals(projectDTO.getName()) &&
-            projectRepository.existsByName(projectDTO.getName())) {
+            projectRepository.existsByNameAndUserId(projectDTO.getName(), userId)) {
             throw new DuplicateResourceException("Project already exists with name: " + projectDTO.getName());
         }
 
@@ -72,15 +78,16 @@ public class ProjectService {
         project.setDescription(projectDTO.getDescription());
 
         Project updatedProject = projectRepository.save(project);
-        log.info("Updated project with id: {}", updatedProject.getId());
+        log.info("Updated project with id: {} for user: {}", updatedProject.getId(), userId);
         return convertToDTO(updatedProject);
     }
 
     @Transactional
     public void deleteProject(Long id, boolean deleteEntries) {
-        log.debug("Deleting project with id: {}, deleteEntries: {}", id, deleteEntries);
+        Long userId = authService.getCurrentUserEntity().getId();
+        log.debug("Deleting project with id: {} for user: {}, deleteEntries: {}", id, userId, deleteEntries);
 
-        Project project = projectRepository.findById(id)
+        Project project = projectRepository.findByIdAndUserId(id, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
 
         // Check if project has entries
@@ -99,7 +106,7 @@ public class ProjectService {
         }
 
         projectRepository.delete(project);
-        log.info("Deleted project with id: {}", id);
+        log.info("Deleted project with id: {} for user: {}", id, userId);
     }
 
     @Transactional(readOnly = true)
