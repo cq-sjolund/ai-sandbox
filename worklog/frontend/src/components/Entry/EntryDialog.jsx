@@ -149,14 +149,14 @@ export default function EntryDialog({ isOpen, onClose, selectedDate, editingEntr
               >
                 {projects.map(project => (
                   <Item key={String(project.id)} textValue={project.name}>
-                    <Flex direction="row" gap="size-100" alignItems="center">
+                    <Flex direction="row" gap="size-100" alignItems="center" UNSAFE_style={{ width: '100%' }}>
                       <View
                         width="size-150"
                         height="size-150"
                         borderRadius="50%"
-                        UNSAFE_style={{ backgroundColor: project.colorCode }}
+                        UNSAFE_style={{ backgroundColor: project.colorCode, flexShrink: 0 }}
                       />
-                      <Text>{project.name}</Text>
+                      <Text UNSAFE_style={{ whiteSpace: 'nowrap' }}>{project.name}</Text>
                     </Flex>
                   </Item>
                 ))}

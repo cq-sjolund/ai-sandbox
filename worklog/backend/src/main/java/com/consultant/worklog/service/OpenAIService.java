@@ -10,6 +10,7 @@ import com.theokanning.openai.service.OpenAiService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -38,6 +39,7 @@ public class OpenAIService {
         log.info("OpenAI Service initialized with model: {}", model);
     }
 
+    @Transactional(readOnly = true)
     public String generateSummary(AISummaryRequestDTO request) {
         log.debug("Generating AI summary for date range: {} to {}", request.getDateRangeStart(), request.getDateRangeEnd());
 
