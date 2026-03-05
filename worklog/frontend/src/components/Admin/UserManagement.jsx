@@ -28,7 +28,6 @@ function UserManagement() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [userToDelete, setUserToDelete] = useState(null)
   const navigate = useNavigate()
 
   const fetchUsers = async () => {
@@ -59,17 +58,15 @@ function UserManagement() {
     }
   }
 
-  const handleDeleteConfirm = async () => {
-    if (!userToDelete) return
-
+  const handleDeleteConfirm = async (userId) => {
     try {
       setLoading(true)
-      await usersAPI.delete(userToDelete.id)
-      setUserToDelete(null)
+      setError(null)
+      await usersAPI.delete(userId)
       fetchUsers() // Refresh the list
     } catch (err) {
       console.error('Failed to delete user:', err)
-      setError('Failed to delete user')
+      setError(err.response?.data?.message || 'Failed to delete user')
     } finally {
       setLoading(false)
     }
@@ -130,24 +127,27 @@ function UserManagement() {
                   <Cell>{user.enabled ? 'Enabled' : 'Disabled'}</Cell>
                   <Cell>{new Date(user.createdAt).toLocaleDateString()}</Cell>
                   <Cell>
-                    <DialogTrigger>
-                      <ActionButton isQuiet>
+                    {user.username === 'admin' ? (
+                      <ActionButton isQuiet isDisabled>
                         <Delete />
                       </ActionButton>
-                      <AlertDialog
-                        variant="destructive"
-                        title="Delete User"
-                        primaryActionLabel="Delete"
-                        cancelLabel="Cancel"
-                        onPrimaryAction={() => {
-                          setUserToDelete(user)
-                          handleDeleteConfirm()
-                        }}
-                      >
-                        Are you sure you want to delete user "{user.username}"? This will also
-                        delete all their projects and worklog entries.
-                      </AlertDialog>
-                    </DialogTrigger>
+                    ) : (
+                      <DialogTrigger>
+                        <ActionButton isQuiet>
+                          <Delete />
+                        </ActionButton>
+                        <AlertDialog
+                          variant="destructive"
+                          title="Delete User"
+                          primaryActionLabel="Delete"
+                          cancelLabel="Cancel"
+                          onPrimaryAction={() => handleDeleteConfirm(user.id)}
+                        >
+                          Are you sure you want to delete user "{user.username}"? This will also
+                          delete all their projects and worklog entries.
+                        </AlertDialog>
+                      </DialogTrigger>
+                    )}
                   </Cell>
                 </Row>
               ))}

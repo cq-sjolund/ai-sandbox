@@ -53,9 +53,13 @@ public class UserService {
 
     @Transactional
     public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new IllegalArgumentException("User not found with id: " + id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+
+        if ("admin".equals(user.getUsername())) {
+            throw new IllegalArgumentException("Cannot delete admin user");
         }
+
         userRepository.deleteById(id);
     }
 
