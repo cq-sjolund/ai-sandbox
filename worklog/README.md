@@ -1,25 +1,42 @@
 # Worklog - Consultant Time Tracking Application
 
-A full-stack consultant worklog application for tracking daily activities across different projects and clients with AI-powered summaries.
+A full-stack consultant worklog application for tracking daily activities across different projects and clients with AI-powered features and Microsoft Dynamics 365 integration.
 
 ## Features
 
-- **📅 Calendar View** - Visual calendar interface to log daily work summaries
+### Core Functionality
+- **📅 Calendar & List Views** - Visual calendar and month-based list view to browse entries
 - **🔢 Multiple Entries Per Day** - Create separate entries for different projects on the same day
 - **⏱️ Hours Tracking** - Track time spent with decimal precision (0.5, 3.5, 8.0 hours)
-- **🎨 Color-Coded Projects** - Visual project indicators with customizable colors
-- **🤖 AI Summaries** - Generate weekly/monthly summaries using OpenAI
+- **🎨 Color-Coded Projects** - Visual project indicators with AI-suggested colors
+- **👥 Multi-User Support** - Each user has private entries and projects with role-based access
+- **🔐 JWT Authentication** - Secure login with JWT tokens and user management
+
+### AI-Powered Features
+- **🤖 AI Summaries** - Generate period summaries with custom prompts
+- **🎨 Smart Colors** - AI suggests appropriate colors for new projects
+- **✍️ Auto-Complete** - AI-powered description completion
+- **💬 Ask AI** - Query your worklog data with natural language
+
+### Microsoft Dynamics 365 Integration
+- **📥 Manual Import** - Import time entries via copy-paste JSON
+- **🧠 AI Project Mapping** - Intelligently maps and merges similar projects
+- **🚫 Duplicate Prevention** - Skips importing days that already have entries
+- **🏷️ Smart Naming** - Keeps more descriptive project names when merging
+
+### User Experience
 - **🎨 Adobe Spectrum Design** - Professional UI with Adobe's design system
 - **🐳 Docker Deployment** - Complete containerized setup with persistent data
-- **🔒 Secure API Key Management** - Environment-based configuration
+- **🔒 Secure Configuration** - Environment-based secrets management
 
 ## Technology Stack
 
-- **Frontend**: React + Vite + Adobe Spectrum Design System
-- **Backend**: Java Spring Boot 3.2 + Maven
+- **Frontend**: React 18 + Vite + Adobe Spectrum + React Router
+- **Backend**: Spring Boot 3.x (Java 17+) + Maven + Spring Security
 - **Database**: PostgreSQL 16 with Flyway migrations
-- **AI Integration**: OpenAI API (GPT-4o-mini)
-- **Containerization**: Docker Compose
+- **Authentication**: JWT tokens with BCrypt password hashing
+- **AI Integration**: OpenAI API (GPT-4 models)
+- **Containerization**: Docker + Docker Compose
 
 ## Architecture
 
@@ -66,7 +83,7 @@ Copy the example environment file and add your OpenAI API key:
 cp .env.example .env
 ```
 
-Edit `.env` and add your OpenAI API key:
+Edit `.env` and configure:
 
 ```env
 POSTGRES_DB=worklog_db
@@ -75,6 +92,9 @@ POSTGRES_PASSWORD=your_secure_password_here
 
 # IMPORTANT: Add your OpenAI API key here
 OPENAI_API_KEY=sk-proj-your-actual-api-key-here
+
+# JWT secret for authentication (use a strong random string in production)
+JWT_SECRET=your-256-bit-secret-key-change-this-in-production
 
 SPRING_PROFILE=prod
 ```
@@ -100,7 +120,23 @@ This will:
 - **Backend API**: http://localhost:8081/api
 - **Health Check**: http://localhost:8081/actuator/health
 
-### 5. Verify Setup
+### 5. Login
+
+On first access, you'll be redirected to the login page.
+
+**Default Admin Credentials:**
+- Username: `admin`
+- Password: `admin`
+
+⚠️ **IMPORTANT**: Change the admin password in production!
+
+After login, you can:
+- Create additional users (admin only)
+- Manage your time entries and projects
+- Import from Dynamics 365
+- Generate AI summaries
+
+### 6. Verify Setup
 
 ```bash
 # Check all containers are running
@@ -112,8 +148,15 @@ docker-compose logs -f
 # Check backend health
 curl http://localhost:8081/actuator/health
 
-# Check projects endpoint
-curl http://localhost:8081/api/projects
+# Login and get JWT token
+curl -X POST http://localhost:8081/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin"}'
+
+# Check projects endpoint (requires authentication)
+# Replace YOUR_JWT_TOKEN with the token from login response
+curl http://localhost:8081/api/projects \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ## Usage Guide
@@ -121,27 +164,32 @@ curl http://localhost:8081/api/projects
 ### Managing Projects
 
 1. Navigate to the **Projects** section in the sidebar
-2. Click the **+** button to add a new project
-3. Enter project name, color code (hex format: #FF5733), and description
-4. Projects appear with color indicators for easy identification
+2. Click **New Project** to add a project
+3. Enter project name - AI will suggest an appropriate color!
+4. Optionally add a description
+5. Projects are color-coded for easy identification
+6. Each user has their own private projects
 
-**Default Projects** (seeded on first run):
-- Enablement (#1473E6) - Internal training and development
-- Client A (#E34850) - Client consulting work
-- Client B (#44B556) - Client consulting work
+**Note:** No default projects are seeded. Create your own projects to get started!
 
 ### Creating Worklog Entries
 
-1. **From Calendar**: Click on any date in the calendar
-   - If the date has no entries, the entry dialog opens
-   - If the date has existing entries, the entry list opens
-2. **From Button**: Click "Add Entry" button in calendar header
-3. Fill in the entry form:
-   - **Date**: Auto-filled from calendar selection (can be changed)
+**List View**:
+1. Click "Add Entry" button
+2. Fill in the entry form:
+   - **Date**: Select date (defaults to today)
    - **Summary**: Brief description (max 255 characters)
    - **Hours**: Time spent (supports decimals: 0.5, 3.5, 8.0)
    - **Project**: Select from dropdown with color indicators
-   - **Description**: Detailed work notes
+   - **Description**: Detailed work notes (supports AI auto-complete)
+3. Click **Save**
+
+**Calendar View**:
+1. Click on any date in the calendar
+   - If empty: Entry dialog opens for that date
+   - If has entries: Entry list opens
+2. Click on individual entries to edit them directly
+3. Fill in or modify the entry form
 4. Click **Save**
 
 ### Multiple Entries Per Day
@@ -159,14 +207,18 @@ You can create multiple entries for the same day:
 
 ### Viewing and Editing Entries
 
-1. Click on a date with entries to see the entry list
-2. Each entry shows:
-   - Project color indicator
-   - Summary and hours
-   - Detailed description
-   - Edit and Delete buttons
-3. Click **Edit** to modify an entry
-4. Click **Delete** to remove an entry (with confirmation)
+**List View** (default):
+- Browse entries by month using Previous/Next Month buttons
+- Shows all entries for the selected month
+- Each entry displays: project color, summary, hours, description
+- Click **Edit** to modify, **Delete** to remove
+
+**Calendar View**:
+- Toggle to "Calendar View" to see entries in a calendar grid
+- Days with entries show colored dots for each project
+- Click on a date to see all entries for that day
+- Click directly on individual entries to edit them
+- Navigate months with Previous/Next/Today buttons
 
 ### Generating AI Summaries
 
@@ -206,6 +258,41 @@ During this period, significant progress was made across multiple projects...
 ...
 ```
 
+### Importing from Microsoft Dynamics 365
+
+The application supports importing time entries from Dynamics 365:
+
+1. Click "Import from Dynamics" button in the dashboard header
+2. Follow the wizard instructions:
+   - Open your Dynamics 365 instance in a new tab
+   - Run the provided JavaScript in the browser console (F12)
+   - Copy the JSON output
+3. Paste the JSON into the import dialog
+4. Click "Analyze & Import"
+5. AI will analyze your Dynamics projects and suggest mappings to existing worklog projects
+6. Review and adjust mappings if needed
+7. Click "Confirm & Import"
+
+**Features:**
+- **AI Project Mapping**: Intelligently matches Dynamics projects to your existing projects
+- **Smart Merging**: Keeps more descriptive project names (e.g., "DNB Bank ASA | DR3730612" instead of "DNB")
+- **Duplicate Prevention**: Skips importing days that already have entries
+- **Bulk Import**: Supports importing thousands of entries at once with pagination
+
+### Managing Users (Admin Only)
+
+Administrators can manage users:
+
+1. Click "Manage Users" in the dashboard header
+2. View all users with their roles and creation dates
+3. Click "Create User" to add a new user
+4. Enter username, password, and select role (USER or ADMIN)
+5. Delete users if needed (cascades to their entries and projects)
+
+**Roles:**
+- **USER**: Can manage own entries and projects, use AI features, import from Dynamics
+- **ADMIN**: All USER permissions + user management
+
 ## Data Persistence
 
 All data is stored in a Docker named volume (`postgres_data`) which persists across container restarts:
@@ -221,20 +308,39 @@ docker-compose down -v
 
 ## API Documentation
 
+**Note:** All API endpoints (except `/api/auth/**`) require JWT authentication via `Authorization: Bearer {token}` header.
+
+### Authentication API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/login` | Login with username/password, returns JWT token |
+| GET | `/api/auth/me` | Get current user info |
+
+### Users API (Admin Only)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/users` | List all users |
+| GET | `/api/users/{id}` | Get user by ID |
+| POST | `/api/users` | Create new user |
+| DELETE | `/api/users/{id}` | Delete user (cascades) |
+
 ### Projects API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/projects` | List all projects |
+| GET | `/api/projects` | List current user's projects |
 | GET | `/api/projects/{id}` | Get project by ID |
 | POST | `/api/projects` | Create new project |
 | PUT | `/api/projects/{id}` | Update project |
+| DELETE | `/api/projects/{id}` | Delete project |
 
 ### Worklog Entries API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/entries` | List all entries |
+| GET | `/api/entries` | List current user's entries |
 | GET | `/api/entries/{id}` | Get entry by ID |
 | GET | `/api/entries/date/{date}` | Get entries for specific date |
 | GET | `/api/entries/range?start={date}&end={date}` | Get entries in date range |
@@ -242,13 +348,16 @@ docker-compose down -v
 | PUT | `/api/entries/{id}` | Update entry |
 | DELETE | `/api/entries/{id}` | Delete entry |
 
-### AI Summary API
+### AI API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/ai/summary` | Generate AI summary |
+| POST | `/api/ai/summary` | Generate period summary |
+| POST | `/api/ai/suggest-color` | Suggest color for project name |
+| POST | `/api/ai/complete-description` | Auto-complete entry description |
+| POST | `/api/ai/ask` | Ask natural language questions about worklog data |
 
-**Request Body**:
+**AI Summary Request**:
 ```json
 {
   "dateRangeStart": "2026-03-01",
@@ -257,6 +366,13 @@ docker-compose down -v
   "customPrompt": "Focus on achievements"
 }
 ```
+
+### Dynamics Integration API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/dynamics/analyze-mappings` | Analyze Dynamics projects with AI |
+| POST | `/api/dynamics/import` | Import entries with project mappings |
 
 ## Development
 
@@ -294,9 +410,12 @@ npm run dev
 Flyway migrations are located in `backend/src/main/resources/db/migration/`:
 - `V1__Create_projects_table.sql` - Projects schema
 - `V2__Create_worklog_entries_table.sql` - Worklog entries schema
-- `V3__Add_seed_data.sql` - Seed data
+- `V3__Add_seed_data.sql` - Seed data (REMOVED - no longer seeds projects)
+- `V4__Create_users_table.sql` - Users and authentication
+- `V5__Add_user_id_to_projects.sql` - Multi-user project ownership
+- `V6__Add_dynamics_integration.sql` - Dynamics sync fields
 
-Migrations run automatically on application startup.
+Migrations run automatically on application startup. A default admin user is created with username/password: `admin`/`admin`.
 
 ## Troubleshooting
 
@@ -355,6 +474,55 @@ docker-compose exec postgres psql -U worklog_user -d worklog_db -c "\dt"
    ```
 3. Check browser console for JavaScript errors
 
+### Authentication Issues
+
+**Can't login / 401 Unauthorized:**
+1. Verify default admin user exists:
+   ```bash
+   docker-compose exec postgres psql -U worklog_user -d worklog_db -c "SELECT * FROM users WHERE username='admin';"
+   ```
+2. Check JWT_SECRET is set in `.env`
+3. Try clearing browser localStorage and cookies
+4. Check backend logs for authentication errors:
+   ```bash
+   docker-compose logs backend | grep -i auth
+   ```
+
+**Token expired:**
+- JWT tokens expire after 24 hours
+- Simply log out and log back in to get a new token
+
+**Forgot admin password:**
+1. Connect to database:
+   ```bash
+   docker-compose exec postgres psql -U worklog_user -d worklog_db
+   ```
+2. Reset password (BCrypt hash of "admin"):
+   ```sql
+   UPDATE users SET password='$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzpLHJ7MYe' WHERE username='admin';
+   ```
+
+### Dynamics Import Issues
+
+**Script errors in Dynamics console:**
+1. Ensure you're logged into Dynamics 365
+2. Make sure you have access to time entries
+3. Check browser console for CORS or network errors
+4. Verify the date range in the script is valid
+
+**AI mapping not working:**
+1. Verify OPENAI_API_KEY is set correctly
+2. Check backend logs for OpenAI API errors
+3. Ensure API key has sufficient quota
+
+**Import not creating entries:**
+1. Check backend logs:
+   ```bash
+   docker-compose logs backend | grep -i dynamics
+   ```
+2. Verify JSON format is correct (starts with `{"value": [...]`)
+3. Check if days already have entries (import skips those days)
+
 ## Maintenance
 
 ### Backing Up Data
@@ -397,13 +565,26 @@ docker-compose build frontend
 
 ## Security Considerations
 
-- ✅ OpenAI API key stored in environment variables (not committed to git)
-- ✅ Backend proxies AI requests (API key never exposed to browser)
-- ✅ CORS configured for specific origins
-- ✅ Database credentials in environment variables
-- ✅ Non-root user in Docker containers
-- ✅ Input validation on all API endpoints
-- ✅ SQL injection prevention via JPA/Hibernate
+- ✅ **JWT Authentication**: Secure token-based authentication with 24-hour expiration
+- ✅ **Password Hashing**: BCrypt with strength 12 for secure password storage
+- ✅ **Role-Based Access**: USER and ADMIN roles with permission enforcement
+- ✅ **Multi-User Isolation**: Users can only access their own data
+- ✅ **OpenAI API Key**: Stored in environment variables, never exposed to browser
+- ✅ **Backend Proxy**: All AI requests go through backend (API key protected)
+- ✅ **CORS**: Configured for specific origins only
+- ✅ **Database Security**: Credentials in environment variables, parameterized queries
+- ✅ **Input Validation**: All API endpoints validate and sanitize input
+- ✅ **SQL Injection Prevention**: Protected via JPA/Hibernate
+- ✅ **XSS Prevention**: React escapes content by default
+- ✅ **Container Security**: Non-root users in Docker containers
+
+**Production Recommendations:**
+- Change default admin password immediately
+- Use strong JWT_SECRET (256+ bit random string)
+- Enable HTTPS/TLS for API and frontend
+- Rotate JWT tokens regularly
+- Implement rate limiting for API endpoints
+- Regular security updates for dependencies
 
 ## License
 

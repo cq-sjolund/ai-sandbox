@@ -2,7 +2,7 @@ import React from 'react'
 import { View, Flex, Text, Heading } from '@adobe/react-spectrum'
 import { useProjects } from '../../contexts/ProjectContext'
 
-export default function CalendarGridView({ entries, currentMonth, onDateClick }) {
+export default function CalendarGridView({ entries, currentMonth, onDateClick, onEntryClick }) {
   const { projects } = useProjects()
 
   // Get first day of month and number of days
@@ -96,7 +96,24 @@ export default function CalendarGridView({ entries, currentMonth, onDateClick })
                   {dayEntries.length > 0 && (
                     <View marginTop="size-50">
                       {dayEntries.slice(0, 2).map((entry, i) => (
-                        <View key={i} marginBottom="size-50">
+                        <div
+                          key={i}
+                          style={{
+                            cursor: 'pointer',
+                            padding: '2px',
+                            borderRadius: '4px',
+                            marginBottom: '4px',
+                            transition: 'background-color 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (onEntryClick) {
+                              onEntryClick(entry)
+                            }
+                          }}
+                        >
                           <Flex direction="row" gap="size-50" alignItems="center">
                             <View
                               width="size-75"
@@ -120,7 +137,7 @@ export default function CalendarGridView({ entries, currentMonth, onDateClick })
                               {entry.summary}
                             </Text>
                           </Flex>
-                        </View>
+                        </div>
                       ))}
                       {dayEntries.length > 2 && (
                         <Text UNSAFE_style={{ fontSize: '10px', color: '#666' }}>

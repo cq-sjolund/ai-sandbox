@@ -4,7 +4,6 @@ import { DatePicker } from '@react-spectrum/datepicker'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import { useWorklog } from '../../contexts/WorklogContext'
 import { useProjects } from '../../contexts/ProjectContext'
-import { dynamicsAPI } from '../../api/client'
 import EntryDialog from '../Entry/EntryDialog'
 import EntryListDialog from '../Entry/EntryListDialog'
 import CalendarGridView from './CalendarGridView'
@@ -12,7 +11,6 @@ import CalendarGridView from './CalendarGridView'
 export default function WorklogCalendar() {
   const { entries, deleteEntry, fetchEntries } = useWorklog()
   const { projects } = useProjects()
-  const [syncingEntries, setSyncingEntries] = useState({})
   const [selectedDate, setSelectedDate] = useState(today(getLocalTimeZone()))
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isListDialogOpen, setIsListDialogOpen] = useState(false)
@@ -102,24 +100,6 @@ export default function WorklogCalendar() {
   const handleEditClick = (entry) => {
     setEditingEntry(entry)
     setIsDialogOpen(true)
-  }
-
-  const handleSyncToDynamics = async (entryId) => {
-    setSyncingEntries(prev => ({ ...prev, [entryId]: true }))
-    try {
-      const response = await dynamicsAPI.syncEntry(entryId)
-      if (response.data.success) {
-        alert('Entry synced successfully to Dynamics!')
-        await fetchEntries() // Reload to get updated sync status
-      } else {
-        alert('Failed to sync entry: ' + response.data.message)
-      }
-    } catch (err) {
-      console.error('Failed to sync entry:', err)
-      alert('Failed to sync entry. Please check your Dynamics configuration.')
-    } finally {
-      setSyncingEntries(prev => ({ ...prev, [entryId]: false }))
-    }
   }
 
   // Group entries by date for display
@@ -258,13 +238,6 @@ export default function WorklogCalendar() {
                             <Text UNSAFE_style={{ fontSize: '13px', color: '#555' }}>
                               {entry.description}
                             </Text>
-                            {entry.syncStatus && (
-                              <Text UNSAFE_style={{ fontSize: '12px', color: entry.syncStatus === 'SYNCED' ? '#0a0' : '#666' }}>
-                                {entry.syncStatus === 'SYNCED' && entry.lastSyncedAt && `✓ Synced ${new Date(entry.lastSyncedAt).toLocaleString()}`}
-                                {entry.syncStatus === 'FAILED' && '✗ Sync failed'}
-                                {entry.syncStatus === 'PENDING' && '⏳ Sync pending'}
-                              </Text>
-                            )}
                             <Divider size="S" marginTop="size-100" marginBottom="size-100" />
                             <Flex direction="row" gap="size-100" wrap>
                               <Button
@@ -280,14 +253,6 @@ export default function WorklogCalendar() {
                                 onPress={() => handleDeleteEntry(entry.id)}
                               >
                                 Delete
-                              </Button>
-                              <Button
-                                variant="accent"
-                                size="S"
-                                onPress={() => handleSyncToDynamics(entry.id)}
-                                isDisabled={syncingEntries[entry.id]}
-                              >
-                                {syncingEntries[entry.id] ? 'Syncing...' : entry.dynamicsId ? 'Re-sync' : 'Sync to Dynamics'}
                               </Button>
                             </Flex>
                           </Flex>
@@ -316,6 +281,7 @@ export default function WorklogCalendar() {
               entries={entries}
               currentMonth={currentMonth}
               onDateClick={handleCalendarDateClick}
+              onEntryClick={handleEditClick}
             />
           </View>
         )}

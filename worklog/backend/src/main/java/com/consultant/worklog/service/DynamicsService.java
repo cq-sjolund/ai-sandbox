@@ -1,29 +1,20 @@
 package com.consultant.worklog.service;
 
-import com.consultant.worklog.dto.DynamicsConfigDTO;
-import com.consultant.worklog.dto.DynamicsTimeEntryDTO;
-import com.consultant.worklog.model.DynamicsConfig;
 import com.consultant.worklog.model.Project;
 import com.consultant.worklog.model.User;
 import com.consultant.worklog.model.WorklogEntry;
-import com.consultant.worklog.repository.DynamicsConfigRepository;
 import com.consultant.worklog.repository.ProjectRepository;
 import com.consultant.worklog.repository.UserRepository;
 import com.consultant.worklog.repository.WorklogEntryRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -31,95 +22,10 @@ import java.util.*;
 @Slf4j
 public class DynamicsService {
 
-    private final DynamicsConfigRepository dynamicsConfigRepository;
     private final UserRepository userRepository;
     private final WorklogEntryRepository worklogEntryRepository;
     private final ProjectRepository projectRepository;
     private final OpenAIService openAIService;
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    @Transactional
-    public DynamicsConfigDTO saveConfig(DynamicsConfigDTO configDTO) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        DynamicsConfig config = dynamicsConfigRepository.findByUserId(user.getId())
-            .orElse(DynamicsConfig.builder().user(user).build());
-
-        config.setOrganizationUrl(configDTO.getOrganizationUrl().trim());
-        config.setAccessToken(configDTO.getAccessToken().trim());
-        config.setBookableResourceId(configDTO.getBookableResourceId());
-        config.setEnabled(configDTO.isEnabled());
-
-        config = dynamicsConfigRepository.save(config);
-
-        return mapToDTO(config);
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<DynamicsConfigDTO> getConfig() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        return dynamicsConfigRepository.findByUserId(user.getId())
-            .map(this::mapToDTO);
-    }
-
-    @Transactional
-    public void deleteConfig() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        dynamicsConfigRepository.findByUserId(user.getId())
-            .ifPresent(dynamicsConfigRepository::delete);
-    }
-
-    @Transactional
-    public Map<String, Object> syncEntryToDynamics(Long entryId) {
-        WorklogEntry entry = worklogEntryRepository.findById(entryId)
-            .orElseThrow(() -> new IllegalArgumentException("Entry not found"));
-
-        DynamicsConfig config = getDynamicsConfigForCurrentUser();
-
-        try {
-            log.info("Syncing entry {} to Dynamics", entryId);
-
-            if (entry.getDynamicsId() != null) {
-                // Update existing entry
-                updateDynamicsTimeEntry(config, entry);
-            } else {
-                // Create new entry
-                String dynamicsId = createDynamicsTimeEntry(config, entry);
-                entry.setDynamicsId(dynamicsId);
-            }
-
-            entry.setLastSyncedAt(LocalDateTime.now());
-            entry.setSyncStatus("SYNCED");
-            worklogEntryRepository.save(entry);
-
-            log.info("Successfully synced entry {} to Dynamics with ID: {}", entryId, entry.getDynamicsId());
-
-            return Map.of(
-                "success", true,
-                "message", "Entry synced successfully",
-                "dynamicsId", entry.getDynamicsId()
-            );
-
-        } catch (Exception e) {
-            log.error("Failed to sync entry {} to Dynamics: {}", entryId, e.getMessage(), e);
-            entry.setSyncStatus("FAILED");
-            worklogEntryRepository.save(entry);
-
-            return Map.of(
-                "success", false,
-                "message", "Failed to sync: " + e.getMessage()
-            );
-        }
-    }
 
     @Transactional(readOnly = true)
     public Map<String, Object> analyzeProjectMappings(java.util.List<java.util.Map<String, Object>> entriesData) {
@@ -356,213 +262,6 @@ public class DynamicsService {
                 "skipped", 0
             );
         }
-    }
-
-    @Transactional
-    public Map<String, Object> importEntriesFromDynamics(LocalDate startDate, LocalDate endDate) {
-        DynamicsConfig config = getDynamicsConfigForCurrentUser();
-
-        try {
-            log.info("Importing entries from Dynamics for date range: {} to {}", startDate, endDate);
-
-            List<DynamicsTimeEntryDTO> dynamicsEntries = fetchDynamicsTimeEntries(config, startDate, endDate);
-
-            int imported = 0;
-            int skipped = 0;
-
-            for (DynamicsTimeEntryDTO dynamicsEntry : dynamicsEntries) {
-                LocalDate entryDate = LocalDate.parse(dynamicsEntry.getDate());
-
-                // Check if entry already exists (by dynamics_id or by date)
-                boolean exists = worklogEntryRepository.findAll().stream()
-                    .anyMatch(e ->
-                        (e.getDynamicsId() != null && e.getDynamicsId().equals(dynamicsEntry.getTimeEntryId())) ||
-                        (e.getEntryDate().equals(entryDate) && e.getProject().getUser().getId().equals(config.getUser().getId()))
-                    );
-
-                if (!exists) {
-                    // Import entry
-                    importDynamicsEntry(config, dynamicsEntry);
-                    imported++;
-                } else {
-                    skipped++;
-                }
-            }
-
-            log.info("Imported {} entries from Dynamics, skipped {} existing entries", imported, skipped);
-
-            return Map.of(
-                "success", true,
-                "imported", imported,
-                "skipped", skipped,
-                "message", String.format("Imported %d entries, skipped %d existing", imported, skipped)
-            );
-
-        } catch (Exception e) {
-            log.error("Failed to import entries from Dynamics: {}", e.getMessage(), e);
-            return Map.of(
-                "success", false,
-                "message", "Failed to import: " + e.getMessage()
-            );
-        }
-    }
-
-    private String createDynamicsTimeEntry(DynamicsConfig config, WorklogEntry entry) throws Exception {
-        String url = config.getOrganizationUrl() + "/api/data/v9.2/msdyn_timeentries";
-
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("msdyn_date", entry.getEntryDate().toString());
-        requestBody.put("msdyn_duration", entry.getHours().multiply(BigDecimal.valueOf(60)).intValue());
-        requestBody.put("msdyn_description", entry.getSummary() + "\n\n" + entry.getDescription());
-        requestBody.put("msdyn_type", 192350000); // Work
-        requestBody.put("msdyn_entrystatus", 192350000); // Draft
-
-        if (config.getBookableResourceId() != null && !config.getBookableResourceId().isBlank()) {
-            requestBody.put("msdyn_bookableresource@odata.bind", "/bookableresources(" + config.getBookableResourceId() + ")");
-        }
-
-        HttpHeaders headers = createHeaders(config);
-        headers.add("Prefer", "return=representation");
-
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-
-        log.info("Creating Dynamics time entry: POST {}", url);
-        log.debug("Request body: {}", objectMapper.writeValueAsString(requestBody));
-
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
-
-        JsonNode responseNode = objectMapper.readTree(response.getBody());
-        return responseNode.get("msdyn_timeentryid").asText();
-    }
-
-    private void updateDynamicsTimeEntry(DynamicsConfig config, WorklogEntry entry) throws Exception {
-        String url = config.getOrganizationUrl() + "/api/data/v9.2/msdyn_timeentries(" + entry.getDynamicsId() + ")";
-
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("msdyn_date", entry.getEntryDate().toString());
-        requestBody.put("msdyn_duration", entry.getHours().multiply(BigDecimal.valueOf(60)).intValue());
-        requestBody.put("msdyn_description", entry.getSummary() + "\n\n" + entry.getDescription());
-
-        HttpHeaders headers = createHeaders(config);
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-
-        log.info("Updating Dynamics time entry: PATCH {}", url);
-        log.debug("Request body: {}", objectMapper.writeValueAsString(requestBody));
-
-        restTemplate.exchange(url, HttpMethod.PATCH, request, String.class);
-    }
-
-    private List<DynamicsTimeEntryDTO> fetchDynamicsTimeEntries(DynamicsConfig config, LocalDate startDate, LocalDate endDate) throws Exception {
-        String filter = String.format("msdyn_date ge %s and msdyn_date le %s", startDate, endDate);
-
-        // Use bookableResourceId from user if available
-        String bookableResourceId = config.getUser().getBookableResourceId();
-        if (bookableResourceId == null || bookableResourceId.isBlank()) {
-            bookableResourceId = config.getBookableResourceId();
-        }
-
-        if (bookableResourceId != null && !bookableResourceId.isBlank()) {
-            filter += " and _msdyn_bookableresource_value eq " + bookableResourceId;
-        }
-
-        String url = config.getOrganizationUrl() + "/api/data/v9.0/msdyn_timeentries?$filter=" + filter + "&$select=msdyn_timeentryid,msdyn_date,msdyn_duration,msdyn_description";
-
-        HttpHeaders headers = createHeaders(config);
-        HttpEntity<Void> request = new HttpEntity<>(headers);
-
-        log.info("Fetching Dynamics time entries: GET {}", url);
-
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
-
-        JsonNode responseNode = objectMapper.readTree(response.getBody());
-        JsonNode values = responseNode.get("value");
-
-        List<DynamicsTimeEntryDTO> entries = new ArrayList<>();
-        if (values != null && values.isArray()) {
-            for (JsonNode node : values) {
-                DynamicsTimeEntryDTO dto = objectMapper.treeToValue(node, DynamicsTimeEntryDTO.class);
-                entries.add(dto);
-            }
-        }
-
-        log.info("Fetched {} entries from Dynamics", entries.size());
-        return entries;
-    }
-
-    private void importDynamicsEntry(DynamicsConfig config, DynamicsTimeEntryDTO dynamicsEntry) {
-        User user = config.getUser();
-
-        // Get or create default project for user
-        java.util.List<Project> userProjects = projectRepository.findByUserId(user.getId());
-        Project defaultProject;
-        if (userProjects == null || userProjects.isEmpty()) {
-            // Create default project if user has none
-            defaultProject = Project.builder()
-                .name("Imported from Dynamics")
-                .description("Default project for Dynamics imports")
-                .colorCode("#1473E6")
-                .user(user)
-                .build();
-            defaultProject = projectRepository.save(defaultProject);
-            log.info("Created default project for user: {}", user.getUsername());
-        } else {
-            defaultProject = userProjects.get(0);
-        }
-
-        String description = dynamicsEntry.getDescription() != null ? dynamicsEntry.getDescription() : "";
-        String summary = description.length() > 0
-            ? description.substring(0, Math.min(255, description.length()))
-            : "Imported from Dynamics";
-
-        WorklogEntry entry = WorklogEntry.builder()
-            .entryDate(LocalDate.parse(dynamicsEntry.getDate()))
-            .hours(BigDecimal.valueOf(dynamicsEntry.getDuration()).divide(BigDecimal.valueOf(60)))
-            .summary(summary)
-            .description(description)
-            .dynamicsId(dynamicsEntry.getTimeEntryId())
-            .lastSyncedAt(LocalDateTime.now())
-            .syncStatus("SYNCED")
-            .project(defaultProject)
-            .build();
-
-        worklogEntryRepository.save(entry);
-        log.info("Imported entry from Dynamics: {}", dynamicsEntry.getTimeEntryId());
-    }
-
-    private HttpHeaders createHeaders(DynamicsConfig config) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.add("Authorization", "Bearer " + config.getAccessToken());
-        headers.add("OData-MaxVersion", "4.0");
-        headers.add("OData-Version", "4.0");
-        headers.add("Accept", "application/json");
-        return headers;
-    }
-
-    private DynamicsConfig getDynamicsConfigForCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        return dynamicsConfigRepository.findByUserId(user.getId())
-            .orElseThrow(() -> new IllegalArgumentException("Dynamics configuration not found. Please configure Dynamics integration first."));
-    }
-
-    private DynamicsConfigDTO mapToDTO(DynamicsConfig config) {
-        return DynamicsConfigDTO.builder()
-            .id(config.getId())
-            .organizationUrl(config.getOrganizationUrl())
-            .accessToken(maskToken(config.getAccessToken()))
-            .bookableResourceId(config.getBookableResourceId())
-            .enabled(config.isEnabled())
-            .build();
-    }
-
-    private String maskToken(String token) {
-        if (token == null || token.length() <= 10) {
-            return "***";
-        }
-        return token.substring(0, 5) + "..." + token.substring(token.length() - 5);
     }
 
     private String generateColorForProject(String projectName) {
