@@ -61,6 +61,8 @@ logging:
     com.consultant.worklog: DEBUG
     org.springframework.web: INFO
     org.springframework.security: DEBUG
+    org.springframework.security.web.context.SecurityContextHolderFilter: WARN
+    org.springframework.security.web.authentication.AnonymousAuthenticationFilter: WARN
     org.hibernate: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
