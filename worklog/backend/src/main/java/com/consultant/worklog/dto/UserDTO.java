@@ -14,6 +14,7 @@ public class UserDTO {
     private String username;
     private String role;
     private boolean enabled;
+    private String bookableResourceId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

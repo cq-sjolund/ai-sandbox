@@ -7,9 +7,11 @@ import { ProjectProvider } from '../../contexts/ProjectContext'
 import WorklogCalendar from '../Calendar/WorklogCalendar'
 import AISummaryPanel from '../AI/AISummaryPanel'
 import ProjectManager from '../Projects/ProjectManager'
+import DynamicsManualImport from '../Dynamics/DynamicsManualImport'
 
 function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(null)
+  const [showDynamicsImport, setShowDynamicsImport] = useState(false)
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -34,6 +36,9 @@ function Dashboard() {
                 <Heading level={1} UNSAFE_style={{ margin: 0 }}>Consultant Worklog</Heading>
                 <Flex direction="row" gap="size-300" alignItems="center">
                   <Text>Welcome, {user?.username}</Text>
+                  <Button variant="accent" onPress={() => setShowDynamicsImport(true)}>
+                    Import from Dynamics
+                  </Button>
                   {user?.role === 'ADMIN' && (
                     <Button variant="secondary" onPress={() => navigate('/admin/users')}>
                       Manage Users
@@ -86,6 +91,12 @@ function Dashboard() {
             </View>
           </Grid>
         </View>
+
+        {/* Dynamics Import Dialog */}
+        <DynamicsManualImport
+          isOpen={showDynamicsImport}
+          onClose={() => setShowDynamicsImport(false)}
+        />
       </WorklogProvider>
     </ProjectProvider>
   )

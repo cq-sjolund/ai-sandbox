@@ -38,6 +38,12 @@ public class WorklogEntryDTO {
 
     private ProjectDTO project;
 
+    private String dynamicsId;
+
+    private LocalDateTime lastSyncedAt;
+
+    private String syncStatus;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

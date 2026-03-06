@@ -358,7 +358,135 @@ public class OpenAIService {
         }
     }
 
+    public ProjectMappingResult mapDynamicsProjectName(String dynamicsProjectName, List<String> existingProjectNames) {
+        try {
+            log.info("=== AI API CALL: Map Dynamics Project Name ===");
+            log.info("OpenAI Request URL: POST https://api.openai.com/v1/chat/completions");
+            log.info("Model: {}", model);
+            log.info("Dynamics Project: {}", dynamicsProjectName);
+            log.info("Existing Projects: {}", existingProjectNames);
+            log.info("Max Tokens: 100, Temperature: 0.3");
+
+            String prompt = "You are a project name mapping expert. " +
+                "Given a Dynamics 365 project name: \"" + dynamicsProjectName + "\"\n" +
+                "And a list of existing project names: " + existingProjectNames + "\n\n" +
+                "Determine if the Dynamics project should map to one of the existing projects.\n\n" +
+                "Examples:\n" +
+                "- \"DNB Bank ASA | DR3730612\" should map to \"DNB\"\n" +
+                "- \"Time Off: PTO/Holiday Post FY23Q3\" should map to \"PTO\"\n" +
+                "- \"Time-Off: Sick Leave\" should map to \"Sick\" or \"PTO\" if those exist\n" +
+                "- \"Enablement of Self\" should map to \"Enablement\" if it exists\n\n" +
+                "Respond in this EXACT format:\n" +
+                "MATCH: [project_name]\n" +
+                "CONFIDENCE: [HIGH|MEDIUM|LOW]\n" +
+                "REASON: [brief explanation]\n\n" +
+                "If no good match exists, respond:\n" +
+                "MATCH: NONE\n" +
+                "CONFIDENCE: N/A\n" +
+                "REASON: [brief explanation]";
+
+            log.info("User Prompt: {}", prompt);
+
+            List<ChatMessage> messages = new ArrayList<>();
+            messages.add(new ChatMessage(ChatMessageRole.USER.value(), prompt));
+
+            ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
+                .model(model)
+                .messages(messages)
+                .maxTokens(100)
+                .temperature(0.3)
+                .build();
+
+            ChatCompletionResult result = openAiService.createChatCompletion(completionRequest);
+            String response = result.getChoices().get(0).getMessage().getContent().trim();
+
+            // Log token usage
+            if (result.getUsage() != null) {
+                log.info("TOKEN USAGE - Prompt: {} | Completion: {} | Total: {} tokens",
+                    result.getUsage().getPromptTokens(),
+                    result.getUsage().getCompletionTokens(),
+                    result.getUsage().getTotalTokens());
+            }
+
+            log.info("AI Response: {}", response);
+
+            // Parse the response
+            ProjectMappingResult mappingResult = parseProjectMappingResponse(response, existingProjectNames);
+            log.info("Parsed Mapping Result: match={}, confidence={}, reason={}",
+                mappingResult.getMatchedProjectName(),
+                mappingResult.getConfidence(),
+                mappingResult.getReason());
+            log.info("=== AI API CALL COMPLETED ===");
+            return mappingResult;
+
+        } catch (Exception e) {
+            log.error("=== AI API CALL FAILED ===");
+            log.error("Error mapping project name: {}", e.getMessage(), e);
+            // Return no match on error
+            return new ProjectMappingResult(null, "LOW", "Error occurred during mapping: " + e.getMessage());
+        }
+    }
+
+    private ProjectMappingResult parseProjectMappingResponse(String response, List<String> validProjectNames) {
+        String matchedProject = null;
+        String confidence = "LOW";
+        String reason = "Could not parse AI response";
+
+        try {
+            String[] lines = response.split("\n");
+            for (String line : lines) {
+                if (line.startsWith("MATCH:")) {
+                    String match = line.substring(6).trim();
+                    if (!"NONE".equalsIgnoreCase(match) && validProjectNames.contains(match)) {
+                        matchedProject = match;
+                    }
+                } else if (line.startsWith("CONFIDENCE:")) {
+                    confidence = line.substring(11).trim().toUpperCase();
+                } else if (line.startsWith("REASON:")) {
+                    reason = line.substring(7).trim();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse AI response: {}", e.getMessage());
+        }
+
+        return new ProjectMappingResult(matchedProject, confidence, reason);
+    }
+
     private String formatDate(java.time.LocalDate date) {
         return date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"));
+    }
+
+    // Inner class to hold mapping results
+    public static class ProjectMappingResult {
+        private final String matchedProjectName;
+        private final String confidence; // HIGH, MEDIUM, LOW
+        private final String reason;
+
+        public ProjectMappingResult(String matchedProjectName, String confidence, String reason) {
+            this.matchedProjectName = matchedProjectName;
+            this.confidence = confidence;
+            this.reason = reason;
+        }
+
+        public String getMatchedProjectName() {
+            return matchedProjectName;
+        }
+
+        public String getConfidence() {
+            return confidence;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+
+        public boolean hasMatch() {
+            return matchedProjectName != null;
+        }
+
+        public boolean isHighConfidence() {
+            return "HIGH".equals(confidence);
+        }
     }
 }

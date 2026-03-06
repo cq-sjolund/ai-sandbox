@@ -4,18 +4,21 @@ import { DatePicker } from '@react-spectrum/datepicker'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import { useWorklog } from '../../contexts/WorklogContext'
 import { useProjects } from '../../contexts/ProjectContext'
+import { dynamicsAPI } from '../../api/client'
 import EntryDialog from '../Entry/EntryDialog'
 import EntryListDialog from '../Entry/EntryListDialog'
 import CalendarGridView from './CalendarGridView'
 
 export default function WorklogCalendar() {
-  const { entries, deleteEntry } = useWorklog()
+  const { entries, deleteEntry, fetchEntries } = useWorklog()
   const { projects } = useProjects()
+  const [syncingEntries, setSyncingEntries] = useState({})
   const [selectedDate, setSelectedDate] = useState(today(getLocalTimeZone()))
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isListDialogOpen, setIsListDialogOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState(null)
   const [viewMode, setViewMode] = useState('list') // 'list' or 'calendar'
+  const [listViewMonth, setListViewMonth] = useState(today(getLocalTimeZone()))
 
   const handleDateSelect = (date) => {
     if (!date) return
@@ -101,6 +104,24 @@ export default function WorklogCalendar() {
     setIsDialogOpen(true)
   }
 
+  const handleSyncToDynamics = async (entryId) => {
+    setSyncingEntries(prev => ({ ...prev, [entryId]: true }))
+    try {
+      const response = await dynamicsAPI.syncEntry(entryId)
+      if (response.data.success) {
+        alert('Entry synced successfully to Dynamics!')
+        await fetchEntries() // Reload to get updated sync status
+      } else {
+        alert('Failed to sync entry: ' + response.data.message)
+      }
+    } catch (err) {
+      console.error('Failed to sync entry:', err)
+      alert('Failed to sync entry. Please check your Dynamics configuration.')
+    } finally {
+      setSyncingEntries(prev => ({ ...prev, [entryId]: false }))
+    }
+  }
+
   // Group entries by date for display
   const entriesByDate = entries.reduce((acc, entry) => {
     if (!acc[entry.entryDate]) {
@@ -110,10 +131,34 @@ export default function WorklogCalendar() {
     return acc
   }, {})
 
-  // Get recent dates with entries (last 30 days)
+  // Filter entries for the current list view month
+  const listViewYear = listViewMonth.year
+  const listViewMonthNum = listViewMonth.month
+  const monthStart = `${listViewYear}-${String(listViewMonthNum).padStart(2, '0')}-01`
+  const monthEnd = `${listViewYear}-${String(listViewMonthNum).padStart(2, '0')}-31`
+
   const recentDates = Object.keys(entriesByDate)
+    .filter(dateStr => dateStr >= monthStart && dateStr <= monthEnd)
     .sort((a, b) => b.localeCompare(a))
-    .slice(0, 30)
+
+  const handlePreviousListMonth = () => {
+    const newDate = listViewMonth.subtract({ months: 1 })
+    setListViewMonth(newDate)
+  }
+
+  const handleNextListMonth = () => {
+    const newDate = listViewMonth.add({ months: 1 })
+    setListViewMonth(newDate)
+  }
+
+  const handleTodayList = () => {
+    setListViewMonth(today(getLocalTimeZone()))
+  }
+
+  // Format month/year for display
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December']
+  const listViewMonthName = `${monthNames[listViewMonthNum - 1]} ${listViewYear}`
 
   return (
     <View>
@@ -152,11 +197,24 @@ export default function WorklogCalendar() {
 
         {viewMode === 'list' ? (
           <View>
-            <Heading level={3} marginBottom="size-200">Recent Entries</Heading>
+            <Flex direction="row" justifyContent="space-between" alignItems="center" marginBottom="size-200">
+              <Heading level={3}>Entries for {listViewMonthName}</Heading>
+              <Flex direction="row" gap="size-100">
+                <Button variant="secondary" onPress={handlePreviousListMonth}>
+                  Previous Month
+                </Button>
+                <Button variant="secondary" onPress={handleTodayList}>
+                  Current Month
+                </Button>
+                <Button variant="secondary" onPress={handleNextListMonth}>
+                  Next Month
+                </Button>
+              </Flex>
+            </Flex>
             <Flex direction="column" gap="size-100">
               {recentDates.length === 0 && (
                 <Well>
-                  <Text>No worklog entries yet. Click "Add Entry" to get started!</Text>
+                  <Text>No worklog entries for {listViewMonthName}. Click "Add Entry" to get started!</Text>
                 </Well>
               )}
 
@@ -200,8 +258,15 @@ export default function WorklogCalendar() {
                             <Text UNSAFE_style={{ fontSize: '13px', color: '#555' }}>
                               {entry.description}
                             </Text>
+                            {entry.syncStatus && (
+                              <Text UNSAFE_style={{ fontSize: '12px', color: entry.syncStatus === 'SYNCED' ? '#0a0' : '#666' }}>
+                                {entry.syncStatus === 'SYNCED' && entry.lastSyncedAt && `✓ Synced ${new Date(entry.lastSyncedAt).toLocaleString()}`}
+                                {entry.syncStatus === 'FAILED' && '✗ Sync failed'}
+                                {entry.syncStatus === 'PENDING' && '⏳ Sync pending'}
+                              </Text>
+                            )}
                             <Divider size="S" marginTop="size-100" marginBottom="size-100" />
-                            <Flex direction="row" gap="size-100">
+                            <Flex direction="row" gap="size-100" wrap>
                               <Button
                                 variant="secondary"
                                 size="S"
@@ -215,6 +280,14 @@ export default function WorklogCalendar() {
                                 onPress={() => handleDeleteEntry(entry.id)}
                               >
                                 Delete
+                              </Button>
+                              <Button
+                                variant="accent"
+                                size="S"
+                                onPress={() => handleSyncToDynamics(entry.id)}
+                                isDisabled={syncingEntries[entry.id]}
+                              >
+                                {syncingEntries[entry.id] ? 'Syncing...' : entry.dynamicsId ? 'Re-sync' : 'Sync to Dynamics'}
                               </Button>
                             </Flex>
                           </Flex>

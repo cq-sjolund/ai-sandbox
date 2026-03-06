@@ -2,7 +2,7 @@ package com.consultant.worklog.model;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -10,35 +10,35 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "dynamics_config")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class DynamicsConfig {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
-    @Size(max = 50)
-    @Column(nullable = false, unique = true, length = 50)
-    private String username;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    @NotNull
+    private User user;
 
     @NotBlank
-    @Column(nullable = false)
-    private String password;  // BCrypt hashed
+    @Column(name = "organization_url", nullable = false, length = 500)
+    private String organizationUrl;
 
     @NotBlank
-    @Column(nullable = false, length = 20)
-    private String role;  // "USER" or "ADMIN"
-
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean enabled = true;
+    @Column(name = "access_token", nullable = false, columnDefinition = "TEXT")
+    private String accessToken;
 
     @Column(name = "bookable_resource_id", length = 255)
     private String bookableResourceId;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

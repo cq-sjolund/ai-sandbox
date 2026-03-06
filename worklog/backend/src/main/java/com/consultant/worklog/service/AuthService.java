@@ -12,6 +12,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
@@ -67,12 +68,21 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
     }
 
+    @Transactional
+    public UserDTO updateBookableResourceId(String bookableResourceId) {
+        User user = getCurrentUserEntity();
+        user.setBookableResourceId(bookableResourceId);
+        userRepository.save(user);
+        return mapToDTO(user);
+    }
+
     private UserDTO mapToDTO(User user) {
         return new UserDTO(
                 user.getId(),
                 user.getUsername(),
                 user.getRole(),
                 user.isEnabled(),
+                user.getBookableResourceId(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

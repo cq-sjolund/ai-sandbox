@@ -69,6 +69,7 @@ public class UserService {
                 user.getUsername(),
                 user.getRole(),
                 user.isEnabled(),
+                user.getBookableResourceId(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

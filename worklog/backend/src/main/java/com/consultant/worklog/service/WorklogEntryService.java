@@ -149,6 +149,9 @@ public class WorklogEntryService {
             .hours(entry.getHours())
             .projectId(entry.getProject().getId())
             .project(projectDTO)
+            .dynamicsId(entry.getDynamicsId())
+            .lastSyncedAt(entry.getLastSyncedAt())
+            .syncStatus(entry.getSyncStatus())
             .createdAt(entry.getCreatedAt())
             .updatedAt(entry.getUpdatedAt())
             .build();

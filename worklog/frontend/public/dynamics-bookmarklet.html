@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamics Sync Bookmarklet</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      line-height: 1.6;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #0078d4;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #0078d4;
+      margin-top: 30px;
+    }
+    .bookmarklet {
+      display: inline-block;
+      padding: 15px 30px;
+      background: #0078d4;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: move;
+      margin: 20px 0;
+    }
+    .bookmarklet:hover {
+      background: #106ebe;
+    }
+    .warning {
+      background: #fff4e5;
+      border-left: 4px solid #ff9800;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .step {
+      background: #f9f9f9;
+      padding: 15px;
+      margin: 10px 0;
+      border-left: 4px solid #4caf50;
+    }
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+    pre {
+      background: #282c34;
+      color: #abb2bf;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    .token-box {
+      background: #e8f5e9;
+      padding: 15px;
+      border: 1px solid #4caf50;
+      border-radius: 5px;
+      margin: 15px 0;
+      word-break: break-all;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Dynamics 365 Sync Bookmarklet</h1>
+
+    <p>This bookmarklet allows you to sync time entries between your Worklog app and Microsoft Dynamics 365 without needing API tokens.</p>
+
+    <div class="warning">
+      <strong>⚠️ Important:</strong> This bookmarklet works by running JavaScript in your Dynamics tab, using your existing browser session. It's completely safe and doesn't store or transmit your credentials anywhere.
+    </div>
+
+    <h2>📥 Installation</h2>
+
+    <div class="step">
+      <strong>Step 1:</strong> Drag this button to your bookmarks bar:
+      <br><br>
+      <a href="javascript:(function(){var s=document.createElement('script');s.src='http://localhost:3001/dynamics-sync.js?v=2';document.body.appendChild(s);})();" class="bookmarklet">🔄 Sync Dynamics</a>
+      <br><br>
+      <small>If you can't drag it, right-click → "Add to Bookmarks" or "Bookmark This Link"</small>
+    </div>
+
+    <h2>🔑 Get Your JWT Token</h2>
+
+    <div class="step">
+      <strong>Step 2:</strong> Get your JWT token from your Worklog app:
+      <ol>
+        <li>Open your Worklog app at <a href="http://localhost:3001" target="_blank">http://localhost:3001</a></li>
+        <li>Make sure you're logged in</li>
+        <li>Open Developer Tools (F12)</li>
+        <li>Go to Console tab</li>
+        <li>Paste this code and press Enter:</li>
+      </ol>
+      <pre>console.log(localStorage.getItem('jwt_token'))</pre>
+      <ol start="6">
+        <li>Copy the token that appears (WITHOUT the quotes)</li>
+        <li>Should look like: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</li>
+        <li><strong>DO NOT include the quote marks " "</strong></li>
+      </ol>
+    </div>
+
+    <div id="token-display"></div>
+
+    <h2>🔍 Find Your Bookable Resource ID</h2>
+
+    <div class="step">
+      <strong>Method 1: Using Browser Console (Easiest)</strong>
+      <ol>
+        <li>Open your Dynamics 365 time entries page</li>
+        <li>Open Developer Tools (F12) → Console tab</li>
+        <li>Paste this code and press Enter:</li>
+      </ol>
+      <pre>fetch(window.location.origin + '/api/data/v9.0/msdyn_timeentries?$select=_msdyn_bookableresource_value&$top=1').then(r => r.json()).then(d => console.log('Your Resource ID:', d.value[0]?._msdyn_bookableresource_value))</pre>
+      <ol start="4">
+        <li>Copy the GUID that appears (format: a1b2c3d4-e5f6-7890-abcd-ef1234567890)</li>
+        <li>Go to Settings in your Worklog app and paste it</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <strong>Method 2: From Time Entry URL</strong>
+      <ol>
+        <li>Open any of YOUR time entries in Dynamics (click to edit one)</li>
+        <li>Look at the URL in your browser</li>
+        <li>Find "_msdyn_bookableresource_value=" in the URL</li>
+        <li>Copy the GUID after the equals sign</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <strong>Method 3: Ask Your Admin</strong>
+      <p>If the above methods don't work, ask your Dynamics administrator for your Bookable Resource ID.</p>
+    </div>
+
+    <h2>🚀 Usage</h2>
+
+    <div class="step">
+      <strong>For IMPORTING from Dynamics to Worklog:</strong>
+      <ol>
+        <li>Open your Dynamics 365 time entries page</li>
+        <li>Click the "🔄 Sync Dynamics" bookmarklet in your bookmarks bar</li>
+        <li>Paste your JWT token when prompted</li>
+        <li>Click <strong>OK</strong> when asked (OK = Import)</li>
+        <li>Enter the date range</li>
+        <li>Wait for import to complete</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <strong>For EXPORTING from Worklog to Dynamics:</strong>
+      <ol>
+        <li>Open your Dynamics 365 time entries page</li>
+        <li>Click the "🔄 Sync Dynamics" bookmarklet in your bookmarks bar</li>
+        <li>Paste your JWT token when prompted</li>
+        <li>Click <strong>Cancel</strong> when asked (Cancel = Export)</li>
+        <li>Enter the date range</li>
+        <li>Wait for export to complete</li>
+      </ol>
+    </div>
+
+    <h2>📝 Notes</h2>
+    <ul>
+      <li>The bookmarklet uses your existing Dynamics session (cookies), so no Bearer token is needed</li>
+      <li>Imported entries are assigned to your default project - you may need to update them</li>
+      <li>The sync is manual - click the bookmarklet each time you want to sync</li>
+      <li>Duplicates are automatically skipped based on date and Dynamics ID</li>
+      <li>All console output is visible in Developer Tools (F12) for debugging</li>
+    </ul>
+
+    <div class="warning">
+      <strong>🔒 Security Note:</strong> Your JWT token gives access to your Worklog account. Keep it private and don't share it. The token expires after 24 hours.
+    </div>
+
+    <h2>🐛 Troubleshooting</h2>
+    <ul>
+      <li><strong>Script not loading:</strong> Make sure your Worklog app is running at http://localhost:3001</li>
+      <li><strong>CORS errors:</strong> The script must be served from the same domain as your Worklog app</li>
+      <li><strong>Authentication errors:</strong> Your JWT token may have expired - get a new one</li>
+      <li><strong>No entries imported:</strong> Check the date range and console logs (F12)</li>
+    </ul>
+
+    <script>
+      // Helper to show current token if localStorage is accessible
+      try {
+        const token = localStorage.getItem('jwt_token');
+        if (token) {
+          document.getElementById('token-display').innerHTML = `
+            <div class="token-box">
+              <strong>Your current JWT token (if accessing from same domain):</strong><br>
+              ${token}
+            </div>
+          `;
+        }
+      } catch (e) {
+        // Cross-origin, can't access localStorage
+      }
+    </script>
+  </div>
+</body>
+</html>

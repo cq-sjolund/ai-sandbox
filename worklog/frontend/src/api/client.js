@@ -92,4 +92,15 @@ export const usersAPI = {
   delete: (id) => apiClient.delete(`/users/${id}`),
 }
 
+// Dynamics Integration API
+export const dynamicsAPI = {
+  getConfig: () => apiClient.get('/dynamics/config'),
+  saveConfig: (config) => apiClient.post('/dynamics/config', config),
+  deleteConfig: () => apiClient.delete('/dynamics/config'),
+  syncEntry: (entryId) => apiClient.post(`/dynamics/sync/${entryId}`),
+  analyzeMappings: (data) => apiClient.post('/dynamics/analyze-mappings', data),
+  importEntries: (data) => apiClient.post('/dynamics/import', data),
+  importFromDynamics: (startDate, endDate) => apiClient.post(`/dynamics/import-from-dynamics?startDate=${startDate}&endDate=${endDate}`),
+}
+
 export default apiClient

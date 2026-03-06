@@ -38,4 +38,12 @@ public class AuthController {
         UserDTO user = authService.getCurrentUser();
         return ResponseEntity.ok(user);
     }
+
+    @PutMapping("/me/bookable-resource")
+    public ResponseEntity<UserDTO> updateBookableResourceId(@RequestBody java.util.Map<String, String> request) {
+        String bookableResourceId = request.get("bookableResourceId");
+        log.info("Updating bookable resource ID for current user");
+        UserDTO user = authService.updateBookableResourceId(bookableResourceId);
+        return ResponseEntity.ok(user);
+    }
 }

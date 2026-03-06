@@ -53,6 +53,15 @@ public class WorklogEntry {
     @NotNull(message = "Project is required")
     private Project project;
 
+    @Column(name = "dynamics_id", length = 255)
+    private String dynamicsId;
+
+    @Column(name = "last_synced_at")
+    private LocalDateTime lastSyncedAt;
+
+    @Column(name = "sync_status", length = 50)
+    private String syncStatus; // PENDING, SYNCED, FAILED, NOT_SYNCED
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
