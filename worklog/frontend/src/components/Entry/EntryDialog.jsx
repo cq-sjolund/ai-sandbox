@@ -65,7 +65,7 @@ export default function EntryDialog({ isOpen, onClose, selectedDate, editingEntr
   // AI auto-complete for description
   useEffect(() => {
     // Only suggest if we have summary, project, and some description text
-    if (!formData.summary || !formData.projectId || !formData.description || formData.description.length < 10) {
+    if (!formData.summary || !formData.projectId || !formData.description || formData.description.length < 5) {
       setAiSuggestion('')
       return
     }
@@ -102,7 +102,7 @@ export default function EntryDialog({ isOpen, onClose, selectedDate, editingEntr
       } finally {
         setSuggestionLoading(false)
       }
-    }, 1500) // Wait 1.5 seconds after user stops typing
+    }, 1000) // Wait 1 second after user stops typing
 
     return () => clearTimeout(timeoutId)
   }, [formData.description, formData.summary, formData.projectId, projects])
