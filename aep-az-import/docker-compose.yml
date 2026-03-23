@@ -1,0 +1,16 @@
+services:
+  azcopy:
+    build: .
+    env_file:
+      - .env
+    environment:
+      # Prevent AzCopy from checking for updates inside the container
+      AZCOPY_AUTO_UPDATE_CHECK: "false"
+      # Store AzCopy internal job logs under /logs so they're accessible on the host
+      AZCOPY_LOG_LOCATION: /logs/azcopy-jobs
+      AZCOPY_JOB_PLAN_LOCATION: /logs/azcopy-jobs
+    volumes:
+      # Drop CSV files into ./data on your host — they'll appear at /data in the container
+      - ./data:/data
+      # Upload logs are written here and also streamed to docker logs
+      - ./logs:/logs

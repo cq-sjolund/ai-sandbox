@@ -1,0 +1,8 @@
+# Credentials — never commit
+.env
+
+# Uploaded data files
+data/*.csv
+
+# Upload logs
+logs/
