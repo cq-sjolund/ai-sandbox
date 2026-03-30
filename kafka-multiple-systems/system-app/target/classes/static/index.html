@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System ...</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #1a1f2e;
+            border-bottom: 2px solid #2d3748;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .system-badge {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .header-info h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .header-info p {
+            font-size: 0.82rem;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 5px;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        main {
+            max-width: 960px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: #1a1f2e;
+            border: 1px solid #2d3748;
+            border-radius: 14px;
+            padding: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            margin-bottom: 1.2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            color: #94a3b8;
+            margin-bottom: 0.4rem;
+        }
+
+        select, textarea {
+            width: 100%;
+            background: #0f1117;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #e2e8f0;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        select:focus, textarea:focus {
+            border-color: #4f46e5;
+        }
+
+        select option {
+            background: #1a1f2e;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 110px;
+        }
+
+        .send-btn {
+            width: 100%;
+            margin-top: 0.25rem;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+
+        .send-btn:hover { opacity: 0.9; }
+        .send-btn:active { transform: scale(0.99); }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        #status-msg {
+            margin-top: 0.7rem;
+            font-size: 0.83rem;
+            min-height: 1.1em;
+            text-align: center;
+        }
+
+        .ok { color: #22c55e; }
+        .err { color: #f87171; }
+
+        .info-box {
+            background: #0f1117;
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            font-size: 0.82rem;
+            color: #64748b;
+            line-height: 1.8;
+        }
+
+        .info-box span { color: #818cf8; font-weight: 600; }
+
+        .messages-card {
+            grid-column: 1 / -1;
+        }
+
+        .messages-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .msg-count {
+            font-size: 0.78rem;
+            background: #2d3748;
+            color: #94a3b8;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        #messages-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            max-height: 420px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        #messages-list::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #messages-list::-webkit-scrollbar-track {
+            background: #0f1117;
+            border-radius: 10px;
+        }
+
+        #messages-list::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+
+        .msg-item {
+            background: #0f1117;
+            border: 1px solid #1e293b;
+            border-left: 3px solid #4f46e5;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+
+        .msg-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.35rem;
+        }
+
+        .msg-from {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #818cf8;
+        }
+
+        .msg-time {
+            font-size: 0.75rem;
+            color: #475569;
+        }
+
+        .msg-content {
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            word-break: break-word;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #374151;
+            padding: 2.5rem;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            main { grid-template-columns: 1fr; }
+            .messages-card { grid-column: 1; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="system-badge" id="badge">?</div>
+        <div class="header-info">
+            <h1 id="header-title">Loading...</h1>
+            <p><span class="status-dot"></span>Connected to Kafka cluster</p>
+        </div>
+    </header>
+
+    <main>
+        <div class="card">
+            <div class="card-title">Send Message</div>
+            <div class="form-group">
+                <label for="receiver">Send to</label>
+                <select id="receiver"></select>
+            </div>
+            <div class="form-group">
+                <label for="message-input">Message</label>
+                <textarea id="message-input" placeholder="Type your message..."></textarea>
+            </div>
+            <button class="send-btn" id="send-btn" onclick="sendMessage()">Send Message</button>
+            <div id="status-msg"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">System Info</div>
+            <div class="info-box">
+                <div>System: <span id="info-name">-</span></div>
+                <div>Topic: <span id="info-topic">-</span></div>
+                <div>Consumer Group: <span id="info-group">-</span></div>
+                <div>Broker: <span id="info-broker">kafka:9092</span></div>
+            </div>
+            <div style="margin-top:1rem; font-size:0.82rem; color:#475569; line-height:1.6;">
+                Messages sent here are produced to the receiver's Kafka topic.
+                This system consumes only its own topic in real time.
+            </div>
+        </div>
+
+        <div class="card messages-card">
+            <div class="messages-header">
+                <div class="card-title" style="margin-bottom:0">Received Messages</div>
+                <span class="msg-count" id="msg-count">0 messages</span>
+            </div>
+            <ul id="messages-list">
+                <li class="empty-state">No messages yet — waiting for incoming messages...</li>
+            </ul>
+        </div>
+    </main>
+
+    <script>
+        let systemName = null;
+        let knownMessages = [];
+
+        async function init() {
+            try {
+                const res = await fetch('/config');
+                const config = await res.json();
+                systemName = config.systemName;
+
+                document.title = 'System ' + systemName;
+                document.getElementById('badge').textContent = systemName;
+                document.getElementById('header-title').textContent = 'System ' + systemName;
+                document.getElementById('info-name').textContent = 'System ' + systemName;
+                document.getElementById('info-topic').textContent = 'system-' + systemName.toLowerCase();
+                document.getElementById('info-group').textContent = 'consumer-group-' + systemName.toLowerCase();
+
+                const select = document.getElementById('receiver');
+                config.allSystems.forEach(s => {
+                    if (s !== systemName) {
+                        const opt = document.createElement('option');
+                        opt.value = s;
+                        opt.textContent = 'System ' + s;
+                        select.appendChild(opt);
+                    }
+                });
+
+                pollMessages();
+                setInterval(pollMessages, 1000);
+            } catch (e) {
+                console.error('Failed to load config:', e);
+            }
+        }
+
+        async function pollMessages() {
+            try {
+                const res = await fetch('/messages');
+                const messages = await res.json();
+                renderMessages(messages);
+            } catch (e) {
+                console.error('Poll error:', e);
+            }
+        }
+
+        function renderMessages(messages) {
+            const list = document.getElementById('messages-list');
+            const countEl = document.getElementById('msg-count');
+
+            countEl.textContent = messages.length + ' message' + (messages.length !== 1 ? 's' : '');
+
+            if (messages.length === 0) {
+                list.innerHTML = '<li class="empty-state">No messages yet — waiting for incoming messages...</li>';
+                return;
+            }
+
+            const reversed = [...messages].reverse();
+            list.innerHTML = reversed.map(m => `
+                <li class="msg-item">
+                    <div class="msg-meta">
+                        <span class="msg-from">From System ${esc(m.from)}</span>
+                        <span class="msg-time">${formatTime(m.timestamp)}</span>
+                    </div>
+                    <div class="msg-content">${esc(m.content)}</div>
+                </li>
+            `).join('');
+        }
+
+        async function sendMessage() {
+            const to = document.getElementById('receiver').value;
+            const content = document.getElementById('message-input').value.trim();
+            const btn = document.getElementById('send-btn');
+            const statusEl = document.getElementById('status-msg');
+
+            if (!content) {
+                setStatus('Please enter a message.', 'err');
+                return;
+            }
+
+            btn.disabled = true;
+            setStatus('', '');
+
+            try {
+                const res = await fetch('/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to, message: content })
+                });
+
+                if (res.ok) {
+                    document.getElementById('message-input').value = '';
+                    setStatus('Message sent to System ' + to, 'ok');
+                    setTimeout(() => setStatus('', ''), 3000);
+                } else {
+                    setStatus('Failed to send. Try again.', 'err');
+                }
+            } catch (e) {
+                setStatus('Network error.', 'err');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function setStatus(msg, cls) {
+            const el = document.getElementById('status-msg');
+            el.textContent = msg;
+            el.className = cls;
+        }
+
+        function formatTime(ts) {
+            return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function esc(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        document.getElementById('message-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendMessage();
+        });
+
+        init();
+    </script>
+</body>
+</html>
